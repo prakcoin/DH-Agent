@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-st.set_page_config(page_title="DH-VLM Chat", layout="centered")
-st.title("DH-VLM: Dior Homme Assistant")
+st.set_page_config(page_title="DH-Agent Chat", layout="centered")
+st.title("DH-Agent: Dior Homme Archive Assistant")
 
 if "agent" not in st.session_state:
     st.session_state.agent = DHAgent()
