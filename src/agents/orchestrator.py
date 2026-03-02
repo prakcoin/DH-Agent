@@ -1,6 +1,6 @@
 from strands import Agent
 from strands.models import BedrockModel
-from specialized_agents import aggregation_agent, image_agent, item_agent, search_agent
+from specialized_agents import aggregation_assistant, image_assistant, item_assistant, search_assistant
 
 ORCHESTRATOR_PROMPT = """
 Role: 
@@ -26,7 +26,7 @@ bedrock_model = BedrockModel(
 orchestrator = Agent(
     model=bedrock_model,
     system_prompt=ORCHESTRATOR_PROMPT,
-    tools=[item_agent, aggregation_agent, image_agent, search_agent]
+    tools=[item_assistant, aggregation_assistant, image_assistant, search_assistant]
 )
 
 customer_query = "What does look 1 consist of?"
