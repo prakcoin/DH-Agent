@@ -19,7 +19,7 @@ s3 = boto3.client(
 )
 
 IMAGE_FOLDER = 'images/'
-BUCKET_NAME = 'aw04-data' 
+BUCKET_NAME = 'aw04-data'
 FOLDER_PREFIX = 'looks/'
 CLOUDFRONT_DOMAIN = "https://d39bzdkvoca64w.cloudfront.net"
 
@@ -29,6 +29,17 @@ bedrock_model = BedrockModel(
 
 @tool
 def get_look_composition(look_number: str):
+    """
+    Retrieve archival composition data for a specific look.
+    
+    Use this tool when you want to list every item included in a specific runway look.
+    
+    Args:
+    look_number (str): The unique identifier for the look, e.g., "1".
+
+    Returns: 
+    A list of every item in the requested look.
+    """
     clean_id = str(look_number).strip().lower().replace('look', '').strip()
     target_file = f"{FOLDER_PREFIX}look_{clean_id}.csv"
     
@@ -46,6 +57,17 @@ def get_look_composition(look_number: str):
 
 @tool
 def get_look_images(look_number: str):
+    """
+    Retrieve the runway images for a specific look.
+    
+    Use this tool when a user asks to see a specific runway look.
+    
+    Args:
+    look_number (str): The unique identifier for the look, e.g., "1".
+
+    Returns: 
+    A list of image URLs for the look.
+    """
     prefix = f"{IMAGE_FOLDER}look{look_number}_"
     
     image_objects = s3.list_objects_v2(
@@ -66,6 +88,19 @@ def get_look_images(look_number: str):
 
 @tool
 def get_item_attribute(item_name: str, look_number: str = None, attribute_type: str = None):
+    """
+    Search archival data for items matching a name and optionally a look number or attribute type.
+    
+    Use this to find specific details (like reference codes, materials, or design features) for a specific named item. 
+    
+    Args:
+    item_name (str): Name or description of the item to search.
+    look_number (str, optional): The unique identifier for the look, e.g., "1".
+    attribute_type (str, optional): Specify which attribute you want extracted.
+
+    Returns: 
+    A ranked list of matching items with all available metadata.
+    """
     search_terms = str(item_name).lower().strip().split()
     
     scored_results = []
@@ -109,6 +144,17 @@ Pass image filenames to VisualAgent if detailed visual analysis is requested.
 
 @tool
 def item_assistant(query: str) -> str:
+    """
+    Handle queries about single items, looks, and their metadata.
+
+    Use this as a conversational agent to answer questions about specific items, retrieve look compositions, or provide images.
+
+    Args:
+    query (str): A question about an item.
+
+    Returns: 
+    Textual response with item information or guidance.
+    """
     try:
         item_agent = Agent(
             model=bedrock_model,
