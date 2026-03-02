@@ -27,6 +27,18 @@ def parse_filenames_from_string(filenames_str):
 
 @tool
 def get_image_details(image_filenames, query: str):
+    """
+    Perform grounded visual analysis on one or more look images.
+
+    Use this tool when a query requires direct visual inspection of garments, accessories, layering, closures, construction details, or physical attributes that cannot be reliably inferred from metadata alone. 
+
+    Args:
+    image_filenames (list): One or more image filenames or URLs associated with a look.
+    query (str): A specific visual question to answer.
+
+    Returns:
+    A structured textual analysis based only on confirmed visual observations.
+    """
     try:
         if not image_filenames:
             return "Error: No image filenames provided."
@@ -118,9 +130,6 @@ IMAGE_PROMPT = """
 Role:
 Analyze look images for fit, silhouette, texture, and aesthetic details.
 
-Toolset / Actions:
-get_image_details: Use the full list of image filenames and the user’s visual query.
-
 Guidelines:
 Always retrieve filenames via ItemAgent.
 Combine visual analysis with metadata for the final answer.
@@ -128,7 +137,18 @@ Report discrepancies between visual and metadata observations.
 """
 
 @tool
-def aggregation_assistant(query: str) -> str:
+def image_assistant(query: str) -> str:
+    """
+    Handle queries requiring visual analysis of look images.
+
+    Use this as a conversational agent to answer questions about the visual appearance of garments, including fit, texture, patterns, and specific design details that are better understood visually than through text.
+    
+    Args:
+    query (str): A question requiring visual inspection of a look or garment.
+
+    Returns: 
+    Textual response regarding visual analysis of images.
+    """
     try:
         image_agent = Agent(
             model=bedrock_model,
