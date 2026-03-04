@@ -9,7 +9,12 @@ from src.agents.search_agent import search_assistant
 
 ORCHESTRATOR_PROMPT = """
 Role: 
-You are the lead archival coordinator for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection. Your goal is to answer user queries accurately by delegating work to specialized subagents (ItemAgent, SearchAgent, CollectionAgent, VisualAgent) and synthesizing their responses into a single, coherent response.
+You are the lead archival coordinator for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection. Your goal is to answer user queries accurately by delegating work to specialized subagents and synthesizing their responses into a single, coherent response.
+
+For questions involving questions about individual items, looks, and metadata, use the item_assistant tool.
+For questions involving aggregation or analysis across the entire collection, use the aggregation_assistant tool.
+For questions requiring web search, use the search_assistant tool.
+For questions requiring visual analysis, use the image_assistant tool. Use the item_assistant tool to retrieve the filenames, then pass them into image_assistant.
 
 Responsibilities:
 Analyze the user query and determine which subagent(s) to invoke.
@@ -19,26 +24,32 @@ Never perform searches or tool actions yourself; only orchestrate subagent calls
 
 Output:
 Deliver the final response directly to the user.
-Embed images in Markdown if returned by VisualAgent.
+Embed images in Markdown if returned.
 Include external sources as hyperlinks immediately after referenced facts.
 Avoid mentioning subagents or tools; the user sees only the final archival output.
 """
 
-bedrock_model = BedrockModel(
-    model_id="us.amazon.nova-pro-v1:0",
-)
+class Orchestrator:
+    """Wrapper class for the multi-agent orchestration system."""
 
-session_manager = FileSessionManager(session_id="multi-agent-session")
-conversation_manager = SlidingWindowConversationManager(window_size=10)
+    def __init__(self, session_id: str = "multi-agent-session"):
+        self.model = BedrockModel(model_id="us.amazon.nova-pro-v1:0")
 
-orchestrator = Agent(
-    model=bedrock_model,
-    system_prompt=ORCHESTRATOR_PROMPT,
-    conversation_manager=conversation_manager,
-    tools=[item_assistant, aggregation_assistant, image_assistant, search_assistant],
-    session_manager=session_manager
-)
+        self.session_manager = FileSessionManager(session_id=session_id)
+        self.conversation_manager = SlidingWindowConversationManager(window_size=10)
 
-customer_query = "What does look 1 consist of?"
+        self.agent = Agent(
+            model=self.model,
+            system_prompt=ORCHESTRATOR_PROMPT,
+            conversation_manager=self.conversation_manager,
+            callback_handler=None,
+            tools=[item_assistant, aggregation_assistant, image_assistant, search_assistant],
+            session_manager=self.session_manager
+        )
 
-response = orchestrator(customer_query)
+    def ask(self, query: str):
+        try:
+            response = self.agent(messages=[{"role": "user", "content": query}])
+            return response.message
+        except Exception as e:
+            return f"Error in orchestrator: {str(e)}"
