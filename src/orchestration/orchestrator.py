@@ -32,10 +32,9 @@ Avoid mentioning subagents or tools; the user sees only the final archival outpu
 class Orchestrator:
     """Wrapper class for the multi-agent orchestration system."""
 
-    def __init__(self, session_id: str = "multi-agent-session"):
+    def __init__(self):
         self.model = BedrockModel(model_id="us.amazon.nova-pro-v1:0")
 
-        self.session_manager = FileSessionManager(session_id=session_id)
         self.conversation_manager = SlidingWindowConversationManager(window_size=10)
 
         self.agent = Agent(
@@ -43,13 +42,12 @@ class Orchestrator:
             system_prompt=ORCHESTRATOR_PROMPT,
             conversation_manager=self.conversation_manager,
             callback_handler=None,
-            tools=[item_assistant, aggregation_assistant, image_assistant, search_assistant],
-            session_manager=self.session_manager
+            tools=[item_assistant, aggregation_assistant, image_assistant, search_assistant]
         )
 
     def ask(self, query: str):
         try:
-            response = self.agent(messages=[{"role": "user", "content": query}])
+            response = self.agent(query)
             return response.message
         except Exception as e:
             return f"Error in orchestrator: {str(e)}"
