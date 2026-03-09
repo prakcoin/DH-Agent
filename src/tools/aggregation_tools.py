@@ -1,6 +1,5 @@
 from strands import tool
 import boto3
-import os
 import csv
 import io
 import logging
@@ -28,6 +27,8 @@ def load_full_collection():
             logger.error(f"Error reading {obj['Key']}: {str(e)}")
     return all_items
 
+FULL_COLLECTION = load_full_collection()
+
 @tool
 def get_collection_items(search_query: str) -> str: 
     """
@@ -48,9 +49,8 @@ def get_collection_items(search_query: str) -> str:
         return "Please provide a search query." 
     
     matches = [] 
-    all_items = load_full_collection() 
     
-    for item in all_items: 
+    for item in FULL_COLLECTION: 
         name = item.get('Name', '') 
         notes = item.get('Additional Notes', '') 
         subcat = item.get('Subcategory', '') 
@@ -82,11 +82,9 @@ def get_collection_summary():
     Returns:
     A formatted textual inventory summary.
     """
-    items = load_full_collection()
-    
     unique_items_map = {}
     
-    for item in items:
+    for item in FULL_COLLECTION:
         signature = (
             item.get('Name', ''),
             item.get('Subcategory', ''),
@@ -128,7 +126,6 @@ def get_item_counts(search_query: str) -> str:
     A string representing the number of unique looks that contain matching items.
     Returns "0" if no matches are found.
     """
-    items = load_full_collection()
     terms = str(search_query).lower().strip().split()
     
     if not terms:
@@ -136,7 +133,7 @@ def get_item_counts(search_query: str) -> str:
 
     unique_looks = set()
     
-    for item in items:
+    for item in FULL_COLLECTION:
         text = f"{item.get('Name','')} {item.get('Additional Notes','')} {item.get('Subcategory','')} {item.get('Primary Outer Material','')} {item.get('Secondary Outer Material(s)','')}".lower()
         
         if all(t in text for t in terms):
