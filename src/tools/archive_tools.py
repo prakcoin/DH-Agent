@@ -42,37 +42,6 @@ def get_look_composition(look_number: str):
         logger.error(f"Error fetching {target_file}: {str(e)}")
         return f"I'm sorry, I couldn't find archival data for Look {look_number}."
 
-@tool
-def get_look_images(look_number: str):
-    """
-    Retrieve the runway images for a specific look.
-    
-    Use this tool when a user asks to see a specific runway look. Only use it when you have a look number.
-    
-    Args:
-    look_number (str): The unique identifier for the look, e.g., "1".
-
-    Returns: 
-    A list of image URLs for the look.
-    """
-    prefix = f"{IMAGE_FOLDER}look{look_number}_"
-    
-    image_objects = s3.list_objects_v2(
-        Bucket=BUCKET_NAME, 
-        Prefix=prefix,
-    )
-    
-    image_urls = []
-    
-    if 'Contents' in image_objects:
-        for obj in image_objects['Contents']:
-            key = obj['Key']
-            if key.lower().endswith(('.jpg', '.jpeg', '.png')):
-                full_url = f"{CLOUDFRONT_DOMAIN}/{key}"
-                image_urls.append(full_url)
-    
-    return image_urls
-
 def load_full_collection():
     all_items = []
     objects = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=FOLDER_PREFIX)

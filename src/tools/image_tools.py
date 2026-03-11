@@ -4,16 +4,57 @@ import base64
 from urllib.parse import urlparse
 import os
 import boto3
+from strands import Agent, tool
+from strands.models import BedrockModel
+from strands_tools import retrieve
 
-s3 = boto3.client('s3', region_name="us-east-1")
-bedrock = boto3.client('bedrock-runtime', region_name="us-east-1")
+s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
+bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
 BUCKET_NAME = 'aw04-data'
+IMAGE_FOLDER = 'images/'
+FOLDER_PREFIX = 'looks/'
+CLOUDFRONT_DOMAIN = 'https://d39bzdkvoca64w.cloudfront.net'
+
+bedrock_model = BedrockModel(
+    model_id="us.amazon.nova-lite-v1:0",
+)
 
 def parse_filenames_from_string(filenames_str):
     s = filenames_str.strip().lstrip("[").rstrip("]")
     parts = s.split(",")
     urls = [p.strip().strip('"').strip("'") for p in parts if p.strip()]
     return urls
+
+@tool
+def get_look_images(look_number: str):
+    """
+    Retrieve the runway images for a specific look.
+    
+    Use this tool when a user asks to see a specific runway look. Only use it when you have a look number.
+    
+    Args:
+    look_number (str): The unique identifier for the look, e.g., "1".
+
+    Returns: 
+    A list of image URLs for the look.
+    """
+    prefix = f"{IMAGE_FOLDER}look{look_number}_"
+    
+    image_objects = s3.list_objects_v2(
+        Bucket=BUCKET_NAME, 
+        Prefix=prefix,
+    )
+    
+    image_urls = []
+    
+    if 'Contents' in image_objects:
+        for obj in image_objects['Contents']:
+            key = obj['Key']
+            if key.lower().endswith(('.jpg', '.jpeg', '.png')):
+                full_url = f"{CLOUDFRONT_DOMAIN}/{key}"
+                image_urls.append(full_url)
+    
+    return image_urls
 
 @tool
 def get_image_details(image_filenames, query: str):
@@ -115,3 +156,43 @@ Query: {query}
 
     except Exception as e:
         return f"Error analyzing images {image_filenames}: {str(e)}"
+    
+KB_PROMPT = """
+Role:
+Retrieve the look number from the knowledge base based on the query.
+
+Guidelines: 
+If the look number is already included in the query, there is no need to retrieve it from the knowledge base.
+Make sure the look number retrieved is a positive integer, and not a word or float. 
+"""
+
+VISUAL_PROMPT = """
+Analyze look images for fit, silhouette, texture, and aesthetic details.
+
+Guidelines:
+Use the look number provided from the retrieved results to get the filenames using the get_look_images tool. 
+Pass the retrieved image filenames into get_image_details in order to retrieve detailed visual analysis.
+"""
+
+SYNTHESIS_PROMPT = """
+Role:
+Synthesize a final answer based on visual and knowledge base information.
+
+Guidelines:
+Combine visual analysis with metadata for the final answer.
+Report discrepancies between visual and metadata observations.
+"""
+
+@tool 
+def image_workflow(query: str) -> str:
+    kb_agent = Agent(model=bedrock_model,
+        system_prompt=KB_PROMPT, tools=[retrieve])
+    visual_agent = Agent(model=bedrock_model,
+        system_prompt=VISUAL_PROMPT, tools=[get_look_images, get_image_details])
+    synthesis_agent = Agent(model=bedrock_model,
+        system_prompt=SYNTHESIS_PROMPT)
+
+    kb_results = kb_agent(f"Retrieve the look number based on this query: {query}")
+    visual_results = visual_agent(f"Based on the look number retrieved, answer the query. Retrived results: {kb_results}. Query: {query}.")
+    response = synthesis_agent(f"Synthesize a final result for this query: {query}. Visual results: {visual_results}. Knowledge base results: {kb_results}.")
+    return response
