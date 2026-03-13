@@ -1,4 +1,4 @@
-from strands import Agent, AgentSkills, Skill
+from strands import Agent
 from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
 from strands.agent.conversation_manager import SlidingWindowConversationManager
@@ -38,7 +38,6 @@ class Orchestrator:
             conversation_manager=self.conversation_manager,
             callback_handler=None,
             tools=[archive_assistant, search_assistant],
-            plugins=[plugin]
         )
 
     def ask(self, query: str):
