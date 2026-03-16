@@ -187,6 +187,17 @@ Report discrepancies between visual and metadata observations.
 
 @tool 
 def get_kb_visual_analysis(query: str) -> str:
+    """
+    Perform grounded visual analysis based on a query.
+
+    Use this tool when a query requires direct visual inspection of garments, accessories, layering, closures, construction details, or physical attributes that cannot be reliably inferred from metadata alone. 
+
+    Args:
+    query (str): A specific visual question to answer.
+
+    Returns:
+    A structured textual analysis based only on confirmed visual observations.
+    """
     kb_agent = Agent(model=bedrock_model,
         system_prompt=KB_PROMPT, tools=[retrieve])
     visual_agent = Agent(model=bedrock_model,
@@ -201,11 +212,10 @@ def get_kb_visual_analysis(query: str) -> str:
 
 READER_PROMPT = """
 Role:
-Use the image_reader tool to format the image path from the query to be used in later steps.
+Use the image_reader tool to analyze and interpret the image and combine it with the initial query. 
 Pass the image path from the query into the image_path parameter.
 
-Guidelines:
-Only format the image path and combine it with the query. 
+Guidelines: 
 Do not pass the entire query into image_reader, only the path.
 If there is no image, indicate this and decline to answer. 
 """
@@ -229,17 +239,31 @@ Combine visual analysis with metadata for the final answer.
 
 @tool 
 def get_image_input(query: str) -> str:
-    
+    """
+    Process image inputs.
+
+    Use this tool when a query includes an image. 
+
+    Args:
+    query (str): A specific question to answer that includes an image.
+
+    Returns:
+    A structured textual analysis based only on confirmed visual observations.
+    """
     reader_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[image_reader])
+        system_prompt=READER_PROMPT, tools=[image_reader])
+    
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=VISUAL_PROMPT, tools=[retrieve])
+        system_prompt=VISUAL_PROMPT)
+    
+    retrieval_agent = Agent(model=bedrock_model,
+        system_prompt=IMAGE_KB_PROMPT, tools=[retrieve])
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
-    reader_results = reader_agent(f"Format the image and query: {query}")
+    reader_results = reader_agent(f"Analyze the image based on the query: {query}")
     
-    kb_results = visual_agent.tool.retrieve(text=reader_results, knowledgeBaseId=os.getenv('IMAGE_KNOWLEDGE_BASE_ID'))
+    kb_results = retrieval_agent.tool.retrieve(text=reader_results, knowledgeBaseId=os.getenv('IMAGE_KNOWLEDGE_BASE_ID'))
     
     # kb_results = visual_agent(f"Based on the formatted image and query, retrieve relevant results. Query: {reader_results}")
     response = synthesis_agent(f"Synthesize a final result for this query: {reader_results}. Knowledge base results: {kb_results}.")
