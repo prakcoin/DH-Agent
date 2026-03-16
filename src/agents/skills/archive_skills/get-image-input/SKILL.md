@@ -1,13 +1,13 @@
 ---
 name: get-image-input
 description: When provided an image with the query, use this skill to analyze the image and address the user's query.
-allowed-tools: image_reader retrieve
+allowed-tools: get_image_input
 ---
 # Image Input
 
 This skill is for handling any queries that include images. This consists of a three agent workflow:
 
-1. Pass the query into the first agent, which uses the image_reader tool to format the image path from the query to be used in later steps. 
+1. Pass the query into the first agent, which uses the image_reader tool to analyze and interpret the image. 
 2. Using the newly formatted query, retrieve any relevant images related to the image and query from the image knowledge base.
 3. Finally, synthesize a final answer based on visual and knowledge base information.
 

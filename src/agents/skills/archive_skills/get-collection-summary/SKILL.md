@@ -1,6 +1,6 @@
 ---
 name: get-collection-summary
-description: To get a full collection summary, use the get_collection_summary tool.
+description: Get a full collection summary.
 allowed-tools: get_collection_summary
 ---
 # Collection Summary

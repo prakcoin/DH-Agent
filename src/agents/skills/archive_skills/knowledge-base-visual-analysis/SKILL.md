@@ -1,11 +1,11 @@
 ---
 name: knowledge-base-visual-analysis
-description: To answer queries involving knowledge base driven visual analysis or identifying visual characteristics, use the get_kb_visual_analysis tool.
+description: To answer queries involving knowledge base driven visual analysis or identifying visual characteristics.
 allowed-tools: get_kb_visual_analysis
 ---
 # Visual Analysis
 
-This skill is for handling any queries that include images. This consists of a three agent workflow:
+This skill is for handling any queries that involve visual analysis, and visual details aren't available in the knowledge base. Pass the query to the get_kb_visual_analysis tool, which consists of a three agent workflow:
 
 1. Pass the query into the first agent, which uses the retrieve tool to retrieve relevant information to be used in later steps. 
 2. Using the look number from the retrieved results, get the look images using the get_look_images tool.
