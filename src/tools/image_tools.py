@@ -10,6 +10,7 @@ from strands.models import BedrockModel
 from strands_tools import retrieve, image_reader
 from strands.types.tools import ToolResult, ToolUse
 from src.agents.hooks import LimitToolCounts
+from botocore.config import Config as BotocoreConfig
 
 s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
 bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
@@ -19,7 +20,7 @@ FOLDER_PREFIX = 'looks/'
 CLOUDFRONT_DOMAIN = 'https://d39bzdkvoca64w.cloudfront.net'
 
 bedrock_model = BedrockModel(
-    model_id="us.amazon.nova-lite-v1:0",
+    model_id="us.amazon.nova-2-lite-v1:0",
 )
 
 def parse_filenames_from_string(filenames_str):
@@ -213,22 +214,93 @@ def get_kb_visual_analysis(query: str) -> str:
     response = synthesis_agent(f"Synthesize a final result for this query: {query}. Visual results: {visual_results}. Knowledge base results: {kb_results}.")
     return response
 
-READER_PROMPT = """
-Role:
-Use the image_reader tool to analyze and interpret the image and combine it with the initial query. 
-Pass the image path from the query into the image_path parameter.
+@tool
+def image_retrieve(image_path: str) -> str:
+    """
+    Perform image-retrieval from the image knowledge base.
 
-Guidelines: 
-Do not pass the entire query into image_reader, only the path.
-If there is no image, indicate this and decline to answer. 
-"""
+    Use this tool when a query requires direct visual inspection of garments, accessories, layering, closures, construction details, or physical attributes that cannot be reliably inferred from metadata alone. 
 
-IMAGE_KB_PROMPT = """
-Retrieve any relevant images related to the image and query.
+    Args:
+    image_path (str): The image to use as a retrieval key.
+
+    Returns:
+    A structured textual analysis based only on confirmed visual observations.
+    """
+    kb_id = os.getenv("IMAGE_KNOWLEDGE_BASE_ID")
+    region_name = os.getenv("AWS_REGION")
+    min_score = float(os.getenv("MIN_SCORE", "0.4"))
+    
+    try:
+        with open(image_path, "rb") as image_file:
+            image_bytes = base64.b64encode(image_file.read()).decode("utf-8")
+
+        config = BotocoreConfig(user_agent_extra="archival-research-agent")
+        client = boto3.client("bedrock-agent-runtime", region_name=region_name, config=config)
+
+        image_format = image_path.split('.')[-1].lower()
+        if image_format == 'jpg':
+            image_format = 'jpeg'
+
+        retrieval_query = {
+            "type": "IMAGE",
+            "image": {
+                "format": image_format,
+                "inlineContent": base64.b64decode(image_bytes)
+            }
+        }
+
+        retrieval_config = {
+            "vectorSearchConfiguration": {
+                "numberOfResults": 10
+            }
+        }
+
+        response = client.retrieve(
+            retrievalQuery=retrieval_query,
+            knowledgeBaseId=kb_id,
+            retrievalConfiguration=retrieval_config
+        )
+
+        all_results = response.get("retrievalResults", [])
+        
+        filtered_results = [r for r in all_results if r.get("score", 0.0) >= min_score]
+        
+        if not filtered_results:
+            return f"No results found above score threshold of {min_score}."
+
+        formatted = []
+        for result in filtered_results:
+            location = result.get("location", {})
+            
+            doc_id = "Unknown"
+            if "s3Location" in location:
+                doc_id = location["s3Location"].get("uri", "Unknown")
+            elif "customDocumentLocation" in location:
+                doc_id = location["customDocumentLocation"].get("id", "Unknown")
+            
+            score = result.get("score", 0.0)
+            formatted.append(f"\nScore: {score:.4f}")
+            formatted.append(f"Document ID: {doc_id}")
+
+            content = result.get("content", {})
+            if content and isinstance(content.get("text"), str):
+                formatted.append(f"Content: {content['text']}\n")
+
+        formatted_results_str = "\n".join(formatted)
+
+        return f"Retrieved {len(filtered_results)} results with score >= {min_score}:\n{formatted_results_str}"
+    except Exception as e:
+        return f"Error during visual retrieval: {str(e)}"
+
+IMAGE_KB_PROMPT = """ 
+Retrieve the most relevant images related to the image using the image_retrieve tool.
+Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter.
 
 Guidelines:
-If the image is irrelevant, indicate this and decline to answer.
+If the input image is irrelevant, indicate this and decline to answer.
 If no results are able to be retrieved, state this.
+If the top result scores end in a tie, return all of the results. 
 """
 
 SUMMARIZER_PROMPT = """
@@ -253,19 +325,14 @@ def get_image_input(query: str) -> str:
     Returns:
     A structured textual analysis based only on confirmed visual observations.
     """
-    limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
+    limit_hook = LimitToolCounts(max_tool_counts={"image_retrieve": 3})
 
-    reader_agent = Agent(model=bedrock_model,
-        system_prompt=READER_PROMPT, tools=[image_reader])
     retrieval_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_KB_PROMPT, tools=[retrieve], hooks=[limit_hook])
+        system_prompt=IMAGE_KB_PROMPT, tools=[image_retrieve], hooks=[limit_hook])
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
-    reader_results = reader_agent(f"Analyze the image based on the query: {query}")
+    kb_results = retrieval_agent(f"From the image present in the query, retrieve the best match image(s). Query: {query}.")
     
-    kb_results = retrieval_agent.tool.retrieve(text=reader_results, knowledgeBaseId=os.getenv('IMAGE_KNOWLEDGE_BASE_ID'))
-    
-    # kb_results = visual_agent(f"Based on the formatted image and query, retrieve relevant results. Query: {reader_results}")
-    response = synthesis_agent(f"Synthesize a final result for this query: {reader_results}. Knowledge base results: {kb_results}.")
+    response = synthesis_agent(f"Synthesize a final result for this query: {query}, using the following results. Knowledge base results: {kb_results}.")
     return response
