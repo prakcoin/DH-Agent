@@ -3,9 +3,10 @@ from strands.models import BedrockModel
 from tools.archive_tools import get_collection_summary
 from tools.image_tools import get_kb_visual_analysis, get_image_input
 from strands_tools import retrieve
+from src.agents.hooks import LimitToolCounts
 
 bedrock_model = BedrockModel(
-    model_id="us.amazon.nova-lite-v1:0",
+    model_id="us.amazon.nova-pro-v1:0",
 )
 
 plugin = AgentSkills(skills="src/agents/skills/archive_skills")
@@ -35,11 +36,14 @@ def archive_assistant(query: str) -> str:
     Textual response synthesized from internal archival tools.
     """
     try:
+        limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
+
         archive_agent = Agent(
             model=bedrock_model,
             system_prompt=PROMPT,
             tools=[get_collection_summary, get_kb_visual_analysis, get_image_input, retrieve],
-            plugins=[plugin]
+            plugins=[plugin],
+            hooks=[limit_hook]
         )
 
         response = archive_agent(query)

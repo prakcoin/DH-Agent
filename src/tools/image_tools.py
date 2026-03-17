@@ -9,6 +9,7 @@ from strands import Agent, tool
 from strands.models import BedrockModel
 from strands_tools import retrieve, image_reader
 from strands.types.tools import ToolResult, ToolUse
+from src.agents.hooks import LimitToolCounts
 
 s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
 bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
@@ -198,8 +199,10 @@ def get_kb_visual_analysis(query: str) -> str:
     Returns:
     A structured textual analysis based only on confirmed visual observations.
     """
+    limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
+
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve])
+        system_prompt=KB_PROMPT, tools=[retrieve], hooks=[limit_hook])
     visual_agent = Agent(model=bedrock_model,
         system_prompt=VISUAL_PROMPT, tools=[get_look_images, get_image_details])
     synthesis_agent = Agent(model=bedrock_model,
@@ -250,14 +253,12 @@ def get_image_input(query: str) -> str:
     Returns:
     A structured textual analysis based only on confirmed visual observations.
     """
+    limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
+
     reader_agent = Agent(model=bedrock_model,
         system_prompt=READER_PROMPT, tools=[image_reader])
-    
-    visual_agent = Agent(model=bedrock_model,
-        system_prompt=VISUAL_PROMPT)
-    
     retrieval_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_KB_PROMPT, tools=[retrieve])
+        system_prompt=IMAGE_KB_PROMPT, tools=[retrieve], hooks=[limit_hook])
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
