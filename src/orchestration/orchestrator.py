@@ -21,6 +21,7 @@ Never perform searches or tool actions yourself; only orchestrate subagent calls
 
 Output:
 Deliver the final response directly to the user.
+DO NOT include internal monologues, reasoning steps, or tags like <thinking>.
 """
 
 class Orchestrator:
