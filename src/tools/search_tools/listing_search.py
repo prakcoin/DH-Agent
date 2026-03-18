@@ -83,6 +83,17 @@ def serper_search(query: str) -> str:
 
 @tool 
 def listing_search(query: str) -> str:
+    """
+    Perform knowledge based filtered web search for active listings, market data, or reference verification.
+
+    Use this to search for clothing listings, reference codes, or prices on the web, and have these results verified by knowledge base information.
+
+    Args:
+    query (str): A search query.
+
+    Returns:
+    Filtered search results.
+    """
     kb_agent = Agent(model=bedrock_model,
         system_prompt=KB_PROMPT, tools=[retrieve])
     google_agent = Agent(model=bedrock_model,

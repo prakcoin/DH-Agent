@@ -20,6 +20,55 @@ bedrock_model = BedrockModel(
     model_id="us.amazon.nova-2-lite-v1:0",
 )
 
+COMPARISON_PROMPT = """
+Analyze IMAGE A (Query) and IMAGE B (Retrieved) to verify visual relevance.
+
+Objective: Determine if these two images are visually related or if this retrieval is a false positive.
+
+Evaluate the connection:
+- Direct match
+- Strong relation
+- Weak relation
+- No relation
+
+Output: 
+Output a short analysis of each image.
+Provide a one-sentence summary of the relationship.
+"""
+
+IMAGE_KB_PROMPT = """ 
+Retrieve the most relevant images related to the image using the image_retrieve tool.
+Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter.
+For every file path or filename returned by 'image_retrieve', you MUST call 'get_cloudfront_url' to generate a valid access link.
+
+Guidelines:
+Make sure the full image path is passed, and not just the filename.
+Return the full filepaths for the matching images if they are found.
+If the top result scores end in a tie, return all of the results. 
+If no image is found, or no image path is provided, return: IMAGE_NOT_AVAILABLE.
+If retrieve returns no results or an error, return: INFO_NOT_AVAILABLE.
+"""
+
+IMAGE_READER_PROMPT = """ 
+Analyze the query image and retrieved images using the get_image_comparison tool.
+For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each image one at a time in the retrieved_filename parameter.
+
+Guidelines: 
+There must be at least two images analyzed: the query image and at least one retrieved image.
+If the query image path is missing, or if the retrieval results contain no valid image paths, return: IMAGE_NOT_AVAILABLE.
+If the images compared are completely unrelated, state this.
+"""
+
+SYNTHESIS_PROMPT = """
+Role:
+Synthesize a final answer based on visual and knowledge base information.
+If the results aren't conclusive, state this.
+
+Guidelines:
+Combine visual analysis with metadata for the final answer.
+Report discrepancies between visual and metadata observations.
+"""
+
 @tool
 def image_retrieve(image_path: str) -> str:
     """
@@ -105,10 +154,10 @@ def get_cloudfront_url(image_filename: str):
     Convert a single archival filename into its corresponding CloudFront URL.
     
     Args:
-        image_filename (str): The specific filename (e.g., "look30_1.jpg").
+    image_filename (str): The specific filename.
 
     Returns: 
-        str: The full CloudFront URL for that specific image.
+    str: The full CloudFront URL for that specific image.
     """
     clean_name = image_filename.split('/')[-1].replace('`', '').strip()
     full_url = f"{CLOUDFRONT_DOMAIN}/{IMAGE_FOLDER}{clean_name}"
@@ -121,11 +170,11 @@ def get_image_comparison(query_filename: str, retrieved_filename: str):
     Perform a direct side-by-side visual comparison between a query image and a single archival look image.
 
     Args:
-        query_filename (str): Local path to the user's query image.
-        retrieved_filename (str): The filename or URL of the archival image.
+    query_filename (str): Local path to the user's query image.
+    retrieved_filename (str): The filename or URL of the archival image.
 
     Returns:
-        A analysis and comparison of the images.
+    A analysis and comparison of the images.
     """
     try:
         content_blocks = []
@@ -156,21 +205,7 @@ def get_image_comparison(query_filename: str, retrieved_filename: str):
         })
 
         content_blocks.append({
-            "text": """
-Analyze IMAGE A (Query) and IMAGE B (Retrieved) to verify visual relevance.
-
-Objective: Determine if these two images are visually related or if this retrieval is a false positive.
-
-Evaluate the connection:
-- Direct match
-- Strong relation
-- Weak relation
-- No relation
-
-Output: 
-Output a short analysis of each image.
-Provide a one-sentence summary of the relationship.
-"""
+            "text": COMPARISON_PROMPT
         })
 
         body = json.dumps({
@@ -197,43 +232,16 @@ Provide a one-sentence summary of the relationship.
     except Exception as e:
         return f"Error comparing {query_filename} and {retrieved_filename}: {str(e)}"
 
-IMAGE_KB_PROMPT = """ 
-Retrieve the most relevant images related to the image using the image_retrieve tool.
-Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter.
-For every file path or filename returned by 'image_retrieve', you MUST call 'get_cloudfront_url' to generate a valid access link.
-
-Guidelines:
-Make sure the full image path is passed, and not just the filename.
-Return the full filepaths for the matching images if they are found.
-If the top result scores end in a tie, return all of the results. 
-If no image is found, or no image path is provided, return: IMAGE_NOT_AVAILABLE.
-If retrieve returns no results or an error, return: INFO_NOT_AVAILABLE.
-"""
-
-IMAGE_READER_PROMPT = """ 
-Analyze the query image and retrieved images using the get_image_comparison tool.
-For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each image one at a time in the retrieved_filename parameter.
-
-Guidelines: 
-There must be at least two images analyzed: the query image and at least one retrieved image.
-If the query image path is missing, or if the retrieval results contain no valid image paths, return: IMAGE_NOT_AVAILABLE.
-If the images compared are completely unrelated, state this.
-"""
-
-SYNTHESIS_PROMPT_2 = """
-Role:
-Synthesize a final answer based on visual and knowledge base information.
-If the results aren't conclusive, state this.
-
-Guidelines:
-Combine visual analysis with metadata for the final answer.
-Report discrepancies between visual and metadata observations.
-"""
-
 @tool 
 def get_image_input(query: str) -> str:
     """
-    Process image inputs by retrieving archival matches and performing visual validation.
+    Perform a direct side-by-side visual comparison between a query image and a single archival look image.
+
+    Args:
+    query (str): A query that includes an image.
+
+    Returns:
+    An answer to the query and image.
     """
     limit_hook = LimitToolCounts(max_tool_counts={"image_retrieve": 3})
 
@@ -244,7 +252,7 @@ def get_image_input(query: str) -> str:
         system_prompt=IMAGE_READER_PROMPT, tools=[get_image_comparison])
     
     synthesis_agent = Agent(model=bedrock_model,
-        system_prompt=SYNTHESIS_PROMPT_2)
+        system_prompt=SYNTHESIS_PROMPT)
 
     kb_results = retrieval_agent(f"From the image in the query, retrieve the best match image(s). Query: {query}.")
     
