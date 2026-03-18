@@ -1,6 +1,6 @@
 ---
 name: image-input
-description: When provided an image with the query, use this skill to analyze the image and address the user's query. Only use this skill if an image is provided by the user.
+description: Handles image input by analyzing the image and comparing with relevant knowledge base entries. Use this skill when a query includes an image.
 allowed-tools: get_image_input
 ---
 # Image Input

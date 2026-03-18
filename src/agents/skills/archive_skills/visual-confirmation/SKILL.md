@@ -1,11 +1,11 @@
 ---
 name: visual-confirmation
-description: To answer queries involving visual analysis or identifying visual characteristics, when the answer isn't present in the knowledge base. Use this skill when knowledge base retrieval is insufficient to answer a specific query.
+description: Answers queries involving visual analysis or identifying visual characteristics, when the answer isn't present in the knowledge base. Use this skill when knowledge base retrieval is insufficient to answer a specific query.
 allowed-tools: get_visual_confirmation
 ---
 # Visual Confirmation
 
-This skill is for handling any queries that involve visual analysis, and visual details aren't available in the knowledge base. Pass the query to the get_visual_confirmation tool, which consists of a three agent workflow:
+This skill is for handling any queries that involve visual analysis over details that aren't available in the knowledge base. Pass the query to the get_visual_confirmation tool, which consists of a three agent workflow:
 
 1. Pass the query into the first agent, which uses the retrieve tool to retrieve relevant information to be used in later steps. 
 2. Using the look number from the retrieved results, get the look images using the get_look_images tool.

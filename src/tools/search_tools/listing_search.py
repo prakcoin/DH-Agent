@@ -102,6 +102,6 @@ def listing_search(query: str) -> str:
         system_prompt=AGGREGATOR_PROMPT)
 
     kb_results = kb_agent(f"Retrieve relevant information based on this query: {query}")
-    search_results = google_agent(f"{kb_results}")
-    response = aggregator_agent(f"Filter out any redundant or irrelevant results from these search results: {search_results}. Base the relevancy on these ground truths: {kb_results}")
+    search_results = google_agent(f"Perform a web search based on the query and relevant knowledge base information. Query: {query}. Knowledge base results: {kb_results}.")
+    response = aggregator_agent(f"Filter out any redundant or irrelevant results from these search results: {search_results}. Base the relevancy on these ground truths: {kb_results}.")
     return response

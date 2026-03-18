@@ -1,6 +1,6 @@
 ---
 name: tavily-search
-description: Use this when deeper research is required, for topics such as collection history, runway analysis, design inspirations, or editorial commentary.
+description: Performs Tavily search based on a query. Use this when deeper research is required, for topics such as collection history, runway analysis, design inspirations, or editorial commentary.
 allowed-tools: tavily_search
 ---
 # Tavily Search
