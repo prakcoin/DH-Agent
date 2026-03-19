@@ -1,6 +1,6 @@
 from strands import Agent, tool, AgentSkills
 from strands.models import BedrockModel
-from src.tools.search_tools import listing_search, tavily_search
+from src.tools.search_tools import listing_search, tavily_search, web_crawl
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-lite-v1:0",
@@ -36,7 +36,7 @@ def search_assistant(query: str) -> str:
         archive_agent = Agent(
             model=bedrock_model,
             system_prompt=SEARCH_PROMPT,
-            tools=[listing_search, tavily_search],
+            tools=[tavily_search, web_crawl, listing_search],
             plugins=[plugin]
         )
 
