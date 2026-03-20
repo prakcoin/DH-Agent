@@ -110,51 +110,59 @@ def tavily_search(query: str) -> str:
     Raw JSON search results from the search API. 
     Return "Search failed." if the request is unsuccessful.
     """
-    usa_queries = [f"Dior {query}", f"Dior AW04 {query}", f"Dior Homme {query}", f"Dior Homme AW04 {query}"]
-    jp_queries = [f"ディオール {query}", f"ディオール 04AW {query}", f"ディオールオム {query}", f"ディオールオム 04AW {query}"]
-
     api_key = TAVILY_API_KEY
     url = "https://api.tavily.com/search"
     
     regions = [
         {
-            "query": f"Dior Homme AW04 {query}",
             "country": "united states",
-            "domains": ["grailed.com", "ebay.com", "vestiairecollective.com", "therealreal.com"]
+            "domains": ["grailed.com", "ebay.com", "vestiairecollective.com", "therealreal.com"],
+            "query_variants": [
+                f"Dior {query}", 
+                f"Dior AW04 {query}", 
+                f"Dior Homme {query}", 
+                f"Dior Homme AW04 {query}"
+            ]
         },
         {
-            "query": f"ディオールオム 04AW {query}",
             "country": "japan",
-            "domains": ["auctions.yahoo.co.jp", "jp.mercari.com", "fril.jp", "trefac.jp"]
+            "domains": ["auctions.yahoo.co.jp", "jp.mercari.com", "fril.jp", "trefac.jp"],
+            "query_variants": [
+                f"ディオール {query}", 
+                f"ディオール 04AW {query}", 
+                f"ディオールオム {query}", 
+                f"ディオールオム 04AW {query}"
+            ]
         }
     ]
 
-    combined_results = []
+    results = []
 
     for region in regions:
-        payload = {
-            "api_key": api_key,
-            "query": region["query"],
-            "include_images": True,
-            "country": region["country"],
-            "include_domains": region["domains"],
-            "search_depth": "advanced",
-            "max_results": 5
-        }
+        for variant in region["query_variants"]:
+            payload = {
+                "api_key": api_key,
+                "query": variant,
+                "include_images": True,
+                "country": region["country"],
+                "include_domains": region["domains"],
+                "search_depth": "advanced",
+                "max_results": 3
+            }
 
-        try:
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=15) as response:
-                res_data = json.loads(response.read().decode("utf-8"))
-                combined_results.extend(res_data.get("results", []))
-        except Exception as e:
-            logger.error(f"Search failed for {region['country']}: {e}")
+            try:
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    res_data = json.loads(response.read().decode("utf-8"))
+                    results.extend(res_data.get("results", []))
+            except Exception as e:
+                logger.error(f"Search failed for {region['country']} variant '{variant}': {e}")
 
-    if not combined_results:
+    if not results:
         return "No results found."
 
-    return json.dumps(combined_results, ensure_ascii=False)
+    return json.dumps(results, ensure_ascii=False)
 
 @tool 
 def listing_search(query: str) -> str:
