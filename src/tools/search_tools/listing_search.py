@@ -142,6 +142,25 @@ def tavily_search(query: str) -> str:
 
     results = []
 
+    payload = {
+        "api_key": api_key,
+        "query": f"Dior {query}",
+        "include_images": True,
+        "country": "united states",
+        "search_depth": "advanced",
+        "max_results": 3
+    }
+
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            results.extend(res_data.get("results", []))
+    except Exception as e:
+        logger.error(f"Search failed for USA variant 'Google': {e}")
+
+
     for region in regions:
         for variant in region["query_variants"]:
             payload = {
