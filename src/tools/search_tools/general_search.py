@@ -13,14 +13,14 @@ AWS_REGION = os.getenv("AWS_REGION")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 @tool
-def tavily_search(query: str) -> str:
+def general_search(query: str) -> str:
     """
     Perform a web search for historical, contextual, or analytical information.
 
-    Use this tool when deeper research is required, such as collection history, runway analysis, design inspirations, or editorial commentary.
+    Use this tool when deeper research is required, such as collection history, design inspirations, or editorial commentary.
 
     Args:
-    query (str): A search query for Tavily search.
+    query (str): A search query.
 
     Returns:
     Raw JSON search results from the search API. 
