@@ -289,7 +289,7 @@ export default function Home() {
         .agents-section { background: var(--surface); }
         .agents-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(2, 1fr);
           gap: 1px;
           background: var(--border);
           margin-top: 64px;
@@ -452,7 +452,7 @@ export default function Home() {
         </h1>
         <p className="hero-sub">
           Strandex is an open-source framework for creating retrieval-augmented
-          multi-agent AI systems over fashion runway data — visual, textual, and real-time.
+          multi-agent AI systems over fashion runway data.
         </p>
         <div className="hero-actions">
           <a href="#docs" className="btn-primary">Get Started</a>
@@ -471,10 +471,10 @@ export default function Home() {
         <h2 className="section-title">From collection data<br />to <em>intelligent agents</em></h2>
         <div className="how-grid">
           {[
-            ["Ingest", "Point Strandex at your fashion collection data — runway images, lookbooks, item metadata. The pipeline handles annotation, embedding, and indexing automatically."],
-            ["Configure", "Define your agent topology: which agents to deploy, what data they can access, and how they collaborate. No boilerplate required."],
-            ["Deploy", "Ship agents via Docker or Bedrock AgentCore with one command. Built-in observability through OpenTelemetry and CloudWatch."],
-            ["Query", "Users interact with a unified agent interface that routes queries to the right specialist — single item, collection-wide, visual, or real-time market data."],
+            ["Ingest", "Point Strandex at your fashion collection data. "],
+            ["Configure", "Define your agent topology."],
+            ["Deploy", "Ship agents with one command, with built-in observability."],
+            ["Query", "Users interact with a unified agent interface."],
           ].map(([title, desc], i) => (
             <div key={i} className="how-cell">
               <span className="how-num">0{i + 1}</span>
@@ -486,17 +486,22 @@ export default function Home() {
       </section>
 
       <div className="divider" />
-
       {/* AGENTS */}
       <section id="agents" className="agents-section">
         <p className="section-label">Agent Architecture</p>
-        <h2 className="section-title">Specialist agents,<br /><em>collaborative</em> by design</h2>
+        <h2 className="section-title">Specialist agents,<br /><em>autonomous</em> by design</h2>
         <div className="agents-grid">
           {[
-            ["◈", "Item Agent", "Analyzes individual garments — silhouette, material, color, construction details — against your collection knowledge base."],
-            ["◉", "Collection Agent", "Identifies trends, recurring motifs, and designer intent across an entire runway or archive."],
-            ["◎", "Visual Agent", "Multimodal analysis of runway imagery using vision-language models for rich, grounded descriptions."],
-            ["◇", "Search Agent", "Pulls real-time market listings and editorial context from the web to ground responses in current data."],
+            [
+              "◈", 
+              "Knowledge Base Agent", 
+              "Executes all core capabilities: item analysis, collection-wide analysis, and multimodal analysis through advanced collaborative pipelines."
+            ],
+            [
+              "◇", 
+              "Search Agent", 
+              "Features an advanced agentic pipeline for collaborative listing search, alongside a standard search for rapid retrieval information not present in the knowledge base."
+            ],
           ].map(([icon, name, desc]) => (
             <div key={name} className="agent-card">
               <div className="agent-icon">{icon}</div>
@@ -506,7 +511,7 @@ export default function Home() {
           ))}
         </div>
       </section>
-
+      
       {/* CODE */}
       <section id="docs">
         <div className="code-section">
