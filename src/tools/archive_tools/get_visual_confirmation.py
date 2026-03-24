@@ -8,7 +8,7 @@ import os
 import boto3
 from strands import Agent, tool
 from strands.models import BedrockModel
-from strands_tools import retrieve
+from strands_tools import retrieve, stop
 from src.agents.hooks import LimitToolCounts
 
 s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
@@ -23,36 +23,19 @@ bedrock_model = BedrockModel(
 )
 
 DETAIL_PROMPT = """
-You are performing grounded visual analysis.
+Role:
+Perform grounded, multi-image visual analysis focusing on technical construction and garment specifications.
 
-Multiple images of the same look may be provided.
-Use all images collectively.
-If a detail is visible in only one image, it counts as present.
-If images conflict, prefer the clearest view.
-
-STEP 1 — Visual Inventory
-List all visible garments and accessories from top to bottom.
-For each item include:
-- Type
-- Basic color (single word)
-- Visible construction details
-- Position on body
-- Any visible hardware
-If uncertain, state "unclear due to resolution."
-
-Do not infer brand, season accuracy, or intent.
-
-STEP 2 — Focused Scan
-If the query involves:
-- Jewelry: scan wrists, fingers, neck specifically.
-- Layers: count neckline layers and sleeve layers separately.
-- Closure: describe fastening mechanism before naming it.
-- Lapels: describe shape before classifying.
-- Hem: describe fold, stacking, or raw edge appearance.
-
-STEP 3 — Answer
-Answer the query using only confirmed observations.
-If evidence is insufficient, state that clearly.
+Guidelines:
+Use all provided images collectively. If a detail is visible in only one image, it is present. In case of conflict, prioritize the highest-resolution view.
+Step 1- List all visible items (top to bottom) including Type, Color (single word), Construction details, Position, and Hardware. Use "unclear due to resolution" for uncertain details.
+Step 2- Perform a focused scan of the following: 
+- Jewelry: Scan wrists, fingers, and neck.
+- Layers: Count neckline and sleeve layers separately.
+- Closures: Describe the mechanism before naming it.
+- Lapels: Describe the geometry/shape before classifying.
+- Hems: Describe folds, stacking, or raw edge appearance.
+Step 3- Respond using ONLY confirmed observations. Do not infer brand, season, or intent. If evidence is insufficient, state it clearly.
 """
 
 KB_PROMPT = """
@@ -60,9 +43,10 @@ Role:
 Retrieve the look number, category, subcategory, primary and secondary color(s), pattern, primary and secondary outer material(s), and additional notes from the knowledge base based on the query.
 
 Guidelines: 
+Use the retrieve tool to get the relevant information, then return it.
+If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
 If the look number is already included in the query, there is no need to retrieve it from the knowledge base.
 Make sure the look number retrieved is a positive integer, and not a word or float. 
-If retrieve returns no results or an error, return: INFO_NOT_AVAILABLE.
 """
 
 VISUAL_PROMPT = """
@@ -71,7 +55,7 @@ Analyze look images for fit, silhouette, texture, and aesthetic details.
 Guidelines:
 Use the look number provided from the retrieved results to get the filenames using the get_look_images tool. 
 Pass the retrieved image filenames into get_image_details in order to retrieve detailed visual analysis.
-If get_look_images returns an empty list or an error, return: IMAGE_NOT_AVAILABLE.
+If get_look_images returns an empty list or an error, use the stop tool with reason IMAGE_NOT_AVAILABLE.
 """
 
 SYNTHESIS_PROMPT = """
@@ -207,21 +191,23 @@ def get_visual_confirmation(query: str) -> str:
     limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
 
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve], hooks=[limit_hook])
+        system_prompt=KB_PROMPT, tools=[retrieve, stop], hooks=[limit_hook])
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=VISUAL_PROMPT, tools=[get_look_images, get_image_details])
+        system_prompt=VISUAL_PROMPT, tools=[get_look_images, get_image_details, stop])
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
-    kb_results = kb_agent(f"Retrieve the look number based on this query: {query}")
+    kb_results = kb_agent(f"Retrieve the look number based on this query: "
+                          f"Query: {query}.")
     if not str(kb_results).strip():
-        return "The retrieval system failed to return a response. Please try again."
-    if "info_not_available" in str(kb_results).lower():
-        return f"I'm sorry, I couldn't find a specific look in our records for '{query}'."
-    visual_results = visual_agent(f"Based on the look number retrieved, answer the query. Retrived results: {str(kb_results)}. Query: {query}.")
+        return "No matching look number found in the knowledge base."
+    visual_results = visual_agent(f"Answer the query based on the retrieved look number. "
+                                  f"Query: {query}. "
+                                  f"Retrieved results: {str(kb_results)}.")
     if not str(visual_results).strip():
-        return "The visual analysis system failed to return a response. Please try again."
-    if "image_not_available" in str(visual_results).lower():
-        return f"I found the metadata for '{query}', but no archival images were available for visual analysis."
-    response = synthesis_agent(f"Synthesize a final result for this query: {query}. Visual results: {str(visual_results)}. Knowledge base results: {str(kb_results)}.")
+        return "Visual analysis for this look is currently unavailable."
+    response = synthesis_agent(f"Synthesize a final result for the query based on the visual and knowledge base results. "
+                               f"Query {query}. "
+                               f"Visual results: {str(visual_results)}. " 
+                               f"Knowledge base results: {str(kb_results)}.")
     return response

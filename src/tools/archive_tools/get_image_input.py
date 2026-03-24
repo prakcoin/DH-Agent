@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import os
 import boto3
 from strands import Agent, tool
+from strands_tools import stop
 from strands.models import BedrockModel
 from src.agents.hooks import LimitToolCounts
 from botocore.config import Config as BotocoreConfig
@@ -21,41 +22,38 @@ bedrock_model = BedrockModel(
 )
 
 COMPARISON_PROMPT = """
+Role:
 Analyze IMAGE A (Query) and IMAGE B (Retrieved) to verify visual relevance.
 
-Objective: Determine if these two images are visually related or if this retrieval is a false positive.
-
-Evaluate the connection:
-- Direct match
-- Strong relation
-- Weak relation
-- No relation
-
-Output: 
-Output a short analysis of each image.
+Guidelines:
+Determine if these two images are visually related or if this retrieval is a false positive.
+Categorize the connection as one of the following: Direct match, Strong relation, Weak relation, No relation
+Output a short analysis of each image
 Provide a one-sentence summary of the relationship.
 """
 
 IMAGE_KB_PROMPT = """ 
-Retrieve the most relevant images related to the image using the image_retrieve tool.
-Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter.
-For every file path or filename returned by 'image_retrieve', you MUST call 'get_cloudfront_url' to generate a valid access link.
+Role:
+Retrieve the most relevant images related to the image using the image_retrieve and get_cloudfront_url tools.
 
 Guidelines:
+Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter.
+For every file path or filename returned by image_retrieve, you MUST call the get_cloudfront_url tool to generate a valid access link.
+If no image is found, or no image path is provided, use the stop tool with reason IMAGE_NOT_AVAILABLE.
+If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
 Make sure the full image path is passed, and not just the filename.
 Return the full filepaths for the matching images if they are found.
 If the top result scores end in a tie, return all of the results. 
-If no image is found, or no image path is provided, return: IMAGE_NOT_AVAILABLE.
-If retrieve returns no results or an error, return: INFO_NOT_AVAILABLE.
 """
 
 IMAGE_READER_PROMPT = """ 
+Role:
 Analyze the query image and retrieved images using the get_image_comparison tool.
-For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each image one at a time in the retrieved_filename parameter.
 
 Guidelines: 
+For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each image one at a time in the retrieved_filename parameter.
+If the query image path is missing, or if the retrieval results contain no valid image paths, use the stop tool with reason IMAGE_NOT_AVAILABLE.
 There must be at least two images analyzed: the query image and at least one retrieved image.
-If the query image path is missing, or if the retrieval results contain no valid image paths, return: IMAGE_NOT_AVAILABLE.
 If the images compared are completely unrelated, state this.
 """
 
@@ -246,32 +244,27 @@ def get_image_input(query: str) -> str:
     limit_hook = LimitToolCounts(max_tool_counts={"image_retrieve": 3})
 
     retrieval_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_KB_PROMPT, tools=[image_retrieve, get_cloudfront_url], hooks=[limit_hook])
+        system_prompt=IMAGE_KB_PROMPT, tools=[image_retrieve, get_cloudfront_url, stop], hooks=[limit_hook])
     
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_READER_PROMPT, tools=[get_image_comparison])
+        system_prompt=IMAGE_READER_PROMPT, tools=[get_image_comparison, stop])
     
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
-    kb_results = retrieval_agent(f"From the image in the query, retrieve the best match image(s). Query: {query}.")
-    
+    kb_results = retrieval_agent(f"From the image in the query, retrieve the best match image(s). "
+                                 f"Query: {query}.")
     if not str(kb_results).strip():
-        return "The retrieval system failed to return a response. Please try again."
-    if "image_not_available" in str(kb_results).lower():
-        return f"No image path was detected in your request: '{query}'."
-    if "info_not_available" in str(kb_results).lower():
-        return f"I'm sorry, I couldn't find a specific image in our records for '{query}'."
-    
+        return "No matching image(s) found in the knowledge base."
     validation_results = visual_agent(
-        f"Compare the user's image in the query with these archival images and URLs: {kb_results}. "
+        f"Compare the user's image in the query with these archival images and URLs. " 
         f"Query: {query}"
+        f"Knowledge base metadata: {str(kb_results)}. "
     )
-
-    if "image_not_available" in str(validation_results).lower():
-        return "Visual validation failed because the input image could not be processed."
-
-    response = synthesis_agent(f"Synthesize a final result for this query: {query}. "
+    if not str(validation_results).strip():
+        return "Visual comparison is currently unavailable."
+    response = synthesis_agent(f"Synthesize a final result for this query. "
+                               f"Query: {query}"
                                f"Knowledge base metadata: {str(kb_results)}. "
                                f"Visual validation analysis: {str(validation_results)}.")
     return response
