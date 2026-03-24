@@ -28,7 +28,10 @@ class Orchestrator:
     """Wrapper class for the multi-agent orchestration system."""
 
     def __init__(self):
-        self.model = BedrockModel(model_id="us.amazon.nova-pro-v1:0")
+        self.model = BedrockModel(model_id="us.amazon.nova-pro-v1:0",
+                                  guardrail_id="ys4jzzz12h6r",
+                                  guardrail_version="1",
+                                  guardrail_trace="enabled")
         #self.session_manager = FileSessionManager(session_id='new-session')
         self.conversation_manager = SlidingWindowConversationManager(window_size=10)
 
@@ -44,6 +47,8 @@ class Orchestrator:
     def ask(self, query: str):
         try:
             response = self.agent(query)
+            if response.stop_reason == "guardrail_intervened":
+                return "Sorry, this question is out of scope. This archive is strictly dedicated to Dior Homme Autumn/Winter 2004."
             return response.message
         except Exception as e:
             return f"Error in orchestrator: {str(e)}"
