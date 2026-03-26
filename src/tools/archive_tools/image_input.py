@@ -9,6 +9,8 @@ from strands_tools import stop
 from strands.models import BedrockModel
 from src.agents.hooks import LimitToolCounts
 from botocore.config import Config as BotocoreConfig
+from strands.vended_plugins.steering import LLMSteeringHandler
+from src.agents.handlers import ModelOutputSteeringHandler
 
 s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
 bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
@@ -36,36 +38,66 @@ IMAGE_KB_PROMPT = """
 Role:
 Retrieve the most relevant images related to the image using the image_retrieve and get_cloudfront_url tools.
 
-Guidelines:
 Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter of the image_retrieve tool.
 For every file path or filename returned by image_retrieve, you MUST call the get_cloudfront_url tool to generate a valid access link.
 If no image is found, or no image path is provided, use the stop tool with reason IMAGE_NOT_AVAILABLE.
-If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
+If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.    
 Make sure the full image path is passed, and not just the filename.
 Return the full filepaths for the matching images if they are found.
-If the top result scores end in a tie, return all of the results. 
+If the top result scores end in a tie, return all of the results.
 """
+
+kb_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Make sure images are retrieved.
+    Ensure that the retrieved images are CloudFront URLs. 
+
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 IMAGE_READER_PROMPT = """ 
 Role:
 Analyze the query image and retrieved images using the get_image_comparison tool.
-
-Guidelines: 
-For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each image one at a time in the retrieved_filename parameter.
-If the query image path is missing, or if the retrieval results contain no valid image paths, use the stop tool with reason IMAGE_NOT_AVAILABLE.
+For each image analysis, pass the query image path (PNG, JPEG/JPG, GIF, or WebP formats) into the query_filename parameter and each retrieved image path one at a time in the retrieved_filename parameter.
+If the query image path is missing, or if the retrieval results contain no valid image paths, use the stop tool with reason IMAGE_NOT_AVAILABLE.    
 There must be at least two images analyzed: the query image and at least one retrieved image.
-If the images compared are completely unrelated, state this.
 """
+
+comparison_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Ensure a detailed visual analysis is returned.
+    If the images compared are completely unrelated, state this.
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 SYNTHESIS_PROMPT = """
 Role:
 Synthesize a final answer based on visual and knowledge base information.
-
-Guidelines:
-If the results aren't conclusive, state this.
 Combine visual analysis with metadata for the final answer.
 Report discrepancies between visual and metadata observations.
 """
+
+synthesis_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Determine if the results are conclusive. If they aren't, state this.
+    Ensure a fully synthesized answer is provided.
+    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
+
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 @tool
 def image_retrieve(image_path: str) -> str:
@@ -244,13 +276,13 @@ def get_image_input(query: str) -> str:
     limit_hook = LimitToolCounts(max_tool_counts={"image_retrieve": 3})
 
     retrieval_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_KB_PROMPT, tools=[image_retrieve, get_cloudfront_url, stop], hooks=[limit_hook])
+        system_prompt=IMAGE_KB_PROMPT, tools=[image_retrieve, get_cloudfront_url, stop], hooks=[limit_hook], plugins=[kb_handler])
     
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=IMAGE_READER_PROMPT, tools=[get_image_comparison, stop])
+        system_prompt=IMAGE_READER_PROMPT, tools=[get_image_comparison, stop], plugins=[comparison_handler])
     
     synthesis_agent = Agent(model=bedrock_model,
-        system_prompt=SYNTHESIS_PROMPT)
+        system_prompt=SYNTHESIS_PROMPT, plugins=[synthesis_handler])
 
     kb_results = retrieval_agent(f"From the image in the query, retrieve the best match image(s). "
                                  f"Query: {query}.")

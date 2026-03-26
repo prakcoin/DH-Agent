@@ -12,6 +12,8 @@ from strands import Agent, tool
 from strands.models import BedrockModel
 from strands_tools import retrieve, stop
 from src.agents.hooks import LimitToolCounts
+from strands.vended_plugins.steering import LLMSteeringHandler
+from src.agents.handlers import ModelOutputSteeringHandler
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -47,30 +49,63 @@ KB_PROMPT = """
 Role:
 Retrieve the look number, category, subcategory, primary and secondary color(s), pattern, primary and secondary outer material(s), and additional notes from the knowledge base based on the query. 
 Using the retrieved look number, retrieve the look composition by passing the look number into the get_look_composition tool.
-
-Guidelines: 
-Return both the retrieved knowledge base information as well as the look composition.
 If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
 If the look number is already included in the query, there is no need to retrieve it from the knowledge base.
-Make sure the look number retrieved is a positive integer, and not a word or float. 
 """
+
+kb_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Make sure look number, category, subcategory, primary and secondary color(s), pattern, primary and secondary outer material(s), and additional notes are retrieved.
+    If some information is classified as not available or to be updated, do not include it.
+    Make sure the look number retrieved is a positive integer, and not a word or float.
+    The output must contain both the retrieved knowledge base metadata and the look composition.
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
+
 
 VISUAL_PROMPT = """
 Analyze look images for fit, silhouette, texture, and aesthetic details.
-
-Guidelines:
 Use the retrieved image filenames and pass them into get_image_details in order to retrieve detailed visual analysis.
 If get_look_images returns an empty list or an error, use the stop tool with reason IMAGE_NOT_AVAILABLE.
+
 """
+
+visual_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Ensure a detailed visual analysis is returned.
+
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 SYNTHESIS_PROMPT = """
 Role:
 Synthesize a final answer based on visual and knowledge base information.
-
-Guidelines:
 Combine visual analysis with metadata for the final answer.
 Report discrepancies between visual and metadata observations.
 """
+
+synthesis_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Determine if the results are conclusive. If they aren't, state this.
+    Ensure a fully synthesized answer is provided.
+    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
+
 
 @tool
 def get_look_composition(look_number: str):
@@ -212,11 +247,11 @@ def get_look_analysis(query: str) -> str:
     limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
 
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve, get_look_composition, stop], hooks=[limit_hook])
+        system_prompt=KB_PROMPT, tools=[retrieve, get_look_composition, stop], hooks=[limit_hook], plugins=[kb_handler])
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=VISUAL_PROMPT, tools=[get_image_details, stop])
+        system_prompt=VISUAL_PROMPT, tools=[get_image_details, stop], plugins=[visual_handler])
     synthesis_agent = Agent(model=bedrock_model,
-        system_prompt=SYNTHESIS_PROMPT)
+        system_prompt=SYNTHESIS_PROMPT, plugins=[synthesis_handler])
 
     kb_results = kb_agent(f"Retrieve the look number and composition based on this query: "
                           f"Query: {query}.")

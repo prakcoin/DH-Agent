@@ -3,6 +3,8 @@ from strands.models import BedrockModel
 from src.tools.archive_tools import look_analysis, collection_inventory, image_input
 from strands_tools import retrieve
 from src.agents.hooks import LimitToolCounts, ForceSingleExecutionHook
+from strands.vended_plugins.steering import LLMSteeringHandler
+from src.agents.handlers import ModelOutputSteeringHandler
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-pro-v1:0",
@@ -12,16 +14,22 @@ plugin = AgentSkills(skills="src/agents/skills/archive_skills")
 
 PROMPT = """
 Role:
-Your role is to provide precise data on individual items, specific looks, and collection-wide analysis by utilizing the archival toolset.
-
-Guidelines:
-When providing an answer, always prioritize the knowledge base metadata; if specific details cannot be retrieved, use visual analysis through to confirm information.
-Consolidate duplicate entries.
+Provide precise data on individual items, specific looks, and collection-wide analysis by utilizing the archival toolset.
 Do not hallucinate item information. All information must be derived from the archive.
-Do not include any sources in your response.
-Avoid mentioning subagents or tools; the user sees only the final archival output.
-Address the query directly and exclusively. Do not provide tangential context, historical background, or related media unless specifically requested.
 """
+
+handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Consolidate duplicate entries.
+    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
+    Do not provide tangential context, historical background, or related media unless specifically requested.
+
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 @tool
 def archive_assistant(query: str) -> str:
@@ -39,7 +47,7 @@ def archive_assistant(query: str) -> str:
             model=bedrock_model,
             system_prompt=PROMPT,
             tools=[collection_inventory, look_analysis, image_input, retrieve],
-            plugins=[plugin],
+            plugins=[plugin, handler],
             hooks=[LimitToolCounts(max_tool_counts={"retrieve": 3}), ForceSingleExecutionHook()]
         )
 

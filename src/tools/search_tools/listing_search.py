@@ -3,6 +3,8 @@ from strands.models import BedrockModel
 from strands_tools import retrieve, stop
 from tavily import TavilyClient
 from src.agents.hooks import LimitToolCounts
+from strands.vended_plugins.steering import LLMSteeringHandler
+from src.agents.handlers import ModelOutputSteeringHandler
 import urllib.request
 import json
 import logging
@@ -24,41 +26,64 @@ bedrock_model = BedrockModel(
 KB_PROMPT = """
 Role:
 Retrieve the items reference code, primary color, secondary color(s), primary outer material, secondary outer material(s), and additional notes to be used in search, and for final verification.
-
-Guidelines:
 Use the retrieve tool to get the relevant information, then return it.
 If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
-Do not retrieve using the full query, instead extract the core subject (e.g., "leather jacket") and search with this instead.
-If some information is classified as not available or to be updated, do not include it.
+Do not retrieve using the full query, instead extract the core subject (e.g., "leather jacket") and search with this instead.    
 """
+
+kb_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    Make sure reference code, primary and secondary color(s), primary and secondary outer material(s), and additional notes are retrieved.
+    If some information is classified as not available or to be updated, do not include it.
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 SEARCH_PROMPT = """
 Role:
 Find current and past listings for items using the tavily_search tool.
-
-Guidelines:
+Always include season and collection identifiers if the user query is vague.
 Search using the query and the reference code and color retrieved from the knowledge base, combine them as one query.
 If the search returns no results, use the stop tool with reason RESULTS_NOT_AVAILABLE.
 Do not search using the raw user query. Extract the core subject (e.g., "fur hooded jacket") and merge it with the retrieved knowledge base metadata. Example: input = "Can you find listings of the fur hooded jacket" + knowledge base "black, 4HH5043801" = black fur hooded leather jacket 4HH5043801.
-Do not include the brand name or season in your input to avoid redundancy, as the tavily_search tool automatically applies hardcoded prefixes to search queries. Do not include "Dior", "AW04", "Autumn/Winter 2004", or similar keywords.
-Always include season and collection identifiers if the user query is vague.
-Discard replicas, inspired items, or unrelated pieces.
-Include source URLs with every fact. Do not hallucinate invalid URLs.
+Do not include the brand name or season in your input to avoid redundancy, as the tavily_search tool automatically applies hardcoded prefixes to search queries. Do not include "Dior", "AW04", "Autumn/Winter 2004", or similar keywords.    
 """
+
+search_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance: 
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 AGGREGATOR_PROMPT = """
 Role:
 Aggregate all web search results and filter out irrelevant or redundant results.
-
-Guidelines:
 You must pass all URLs from the search results into the validate_urls tool to help filter out any non-functional URLs.
-If no URLs are found, skip validation and state that no results were found.
-Filter based on all of the ground truth provided by the knowledge base EXCEPT for the reference code. If a search result doesn't match the item based in the knowledge base, filter it out.
-If a result is simply missing information that the knowledge base contains, DO NOT filter it out immediately. Treat "missing info" as a potential match unless it is proven wrong by other details.
-Discard replicas, inspired items, or unrelated pieces.
-Provide listing URLs. Never guess a URL.
-If there are no relevant results, and no results match what is being asked, then state this and return no results.
 """
+
+aggregator_handler = ModelOutputSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    If no URLs are found, skip validation and state that no results were found.
+    Filter based on all of the ground truth provided by the knowledge base EXCEPT for the reference code. If a search result doesn't match the item based in the knowledge base, filter it out.
+    If a result is simply missing information that the knowledge base contains, DO NOT filter it out immediately. Treat "missing info" as a potential match unless it is proven wrong by other details.
+    Discard replicas, inspired items, or unrelated pieces.
+    Provide listing URLs. Never guess a URL.
+    If there are no relevant results, and no results match what is being asked, then state this and return no results.
+        
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 @tool
 def validate_urls(urls: list[str]) -> dict:
@@ -213,11 +238,11 @@ def listing_search(query: str) -> str:
     limit_search_hook = LimitToolCounts(max_tool_counts={"tavily_search": 3})
 
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve, stop], hooks=[limit_retrieve_hook])
+        system_prompt=KB_PROMPT, tools=[retrieve, stop], hooks=[limit_retrieve_hook], plugins=[kb_handler])
     google_agent = Agent(model=bedrock_model,
-        system_prompt=SEARCH_PROMPT, tools=[tavily_search, stop], hooks=[limit_search_hook])
+        system_prompt=SEARCH_PROMPT, tools=[tavily_search, stop], hooks=[limit_search_hook], plugins=[search_handler])
     aggregator_agent = Agent(model=bedrock_model,
-        system_prompt=AGGREGATOR_PROMPT, tools=[validate_urls])
+        system_prompt=AGGREGATOR_PROMPT, tools=[validate_urls], plugins=[aggregator_handler])
 
     kb_results = kb_agent(f"Retrieve relevant information based on this query. " 
                           f"Query: {query}")
