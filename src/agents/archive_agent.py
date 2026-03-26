@@ -2,7 +2,7 @@ from strands import Agent, tool, AgentSkills
 from strands.models import BedrockModel
 from src.tools.archive_tools import look_analysis, collection_inventory, image_input
 from strands_tools import retrieve
-from src.agents.hooks import LimitToolCounts, ForceSingleExecutionHook
+from src.agents.hooks import LimitToolCounts
 from strands.vended_plugins.steering import LLMSteeringHandler
 from src.agents.handlers import ModelOutputSteeringHandler
 
@@ -48,7 +48,7 @@ def archive_assistant(query: str) -> str:
             system_prompt=PROMPT,
             tools=[collection_inventory, look_analysis, image_input, retrieve],
             plugins=[plugin, handler],
-            hooks=[LimitToolCounts(max_tool_counts={"retrieve": 3}), ForceSingleExecutionHook()]
+            hooks=[LimitToolCounts(max_tool_counts={"retrieve": 3})]
         )
 
         response = archive_agent(query)
