@@ -10,7 +10,7 @@ This skill is for handling any queries that involve individual looks. Pass the q
 1. Pass the query into the first agent, which uses the retrieve and get_look_composition tools to retrieve relevant information to be used in later steps. 
 2. Using the look number from the retrieved results, get the look images using the get_look_images tool.
 3. Pass the look images into the get_image_details tool to get detailed visual analysis.
-4. Finally, synthesize a final answer based on visual and knowledge base information.
+4. Finally, pass the visual and knowledge base information to the final agent in order to synthesize a final answer.
 
 ## Guidelines
 Pass the relevant aspects of the query that need to be analyzed (e.g. an item, look, or feature) to the tool, rather than the full query.

@@ -60,9 +60,9 @@ If the images compared are completely unrelated, state this.
 SYNTHESIS_PROMPT = """
 Role:
 Synthesize a final answer based on visual and knowledge base information.
-If the results aren't conclusive, state this.
 
 Guidelines:
+If the results aren't conclusive, state this.
 Combine visual analysis with metadata for the final answer.
 Report discrepancies between visual and metadata observations.
 """
