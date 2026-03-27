@@ -21,8 +21,6 @@ handler = ModelOutputSteeringHandler(
 
     Guidance:
     For historical data, cite the source URL for every fact. For marketplace results, provide only the direct listing URL once per item.
-    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
-    Do not provide tangential context, historical background, or related media unless specifically requested.
     
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """

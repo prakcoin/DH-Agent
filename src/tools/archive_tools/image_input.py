@@ -37,7 +37,6 @@ Provide a one-sentence summary of the relationship.
 IMAGE_KB_PROMPT = """ 
 Role:
 Retrieve the most relevant images related to the image using the image_retrieve and get_cloudfront_url tools.
-
 Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter of the image_retrieve tool.
 For every file path or filename returned by image_retrieve, you MUST call the get_cloudfront_url tool to generate a valid access link.
 If no image is found, or no image path is provided, use the stop tool with reason IMAGE_NOT_AVAILABLE.
@@ -72,7 +71,7 @@ comparison_handler = ModelOutputSteeringHandler(
     You are providing guidance to ensure proper formatting of information.
 
     Guidance:
-    Ensure a detailed visual analysis is returned.
+    Ensure a detailed visual analysis is provided.
     If the images compared are completely unrelated, state this.
     
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
@@ -93,7 +92,6 @@ synthesis_handler = ModelOutputSteeringHandler(
     Guidance:
     Determine if the results are conclusive. If they aren't, state this.
     Ensure a fully synthesized answer is provided.
-    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
 
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """

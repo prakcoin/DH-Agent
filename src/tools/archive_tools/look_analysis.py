@@ -69,10 +69,10 @@ kb_handler = ModelOutputSteeringHandler(
 
 
 VISUAL_PROMPT = """
+Role:
 Analyze look images for fit, silhouette, texture, and aesthetic details.
 Use the retrieved image filenames and pass them into get_image_details in order to retrieve detailed visual analysis.
 If get_look_images returns an empty list or an error, use the stop tool with reason IMAGE_NOT_AVAILABLE.
-
 """
 
 visual_handler = ModelOutputSteeringHandler(
@@ -80,7 +80,7 @@ visual_handler = ModelOutputSteeringHandler(
     You are providing guidance to ensure proper formatting of information.
 
     Guidance:
-    Ensure a detailed visual analysis is returned.
+    Ensure a detailed visual analysis is provided.
 
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """
@@ -100,7 +100,6 @@ synthesis_handler = ModelOutputSteeringHandler(
     Guidance:
     Determine if the results are conclusive. If they aren't, state this.
     Ensure a fully synthesized answer is provided.
-    Do not include internal monologues, reasoning steps, or tags like <thinking>. Avoid mentioning subagents or tools.
     
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """

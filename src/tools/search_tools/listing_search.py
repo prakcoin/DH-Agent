@@ -58,6 +58,7 @@ search_handler = ModelOutputSteeringHandler(
     You are providing guidance to ensure proper formatting of information.
 
     Guidance: 
+    Make sure a list of search results is retrieved.
     
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """
@@ -74,11 +75,10 @@ aggregator_handler = ModelOutputSteeringHandler(
     You are providing guidance to ensure proper formatting of information.
 
     Guidance:
-    If no URLs are found, skip validation and state that no results were found.
     Filter based on all of the ground truth provided by the knowledge base EXCEPT for the reference code. If a search result doesn't match the item based in the knowledge base, filter it out.
     If a result is simply missing information that the knowledge base contains, DO NOT filter it out immediately. Treat "missing info" as a potential match unless it is proven wrong by other details.
     Discard replicas, inspired items, or unrelated pieces.
-    Provide listing URLs. Never guess a URL.
+    Provide listing URLs. If no URLs are provided, skip validation and state that no results were found.
     If there are no relevant results, and no results match what is being asked, then state this and return no results.
         
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
