@@ -5,7 +5,6 @@ from strands.agent.conversation_manager import SlidingWindowConversationManager
 from agents.archive_agent import archive_assistant
 from src.agents.search_agent import search_assistant
 from src.agents.hooks import NotifyOnlyGuardrailsHook
-from strands.vended_plugins.steering import LLMSteeringHandler
 from src.agents.handlers import AgentSteeringHandler
 
 ORCHESTRATOR_PROMPT = """

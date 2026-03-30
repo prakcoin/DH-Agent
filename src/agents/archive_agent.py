@@ -1,6 +1,8 @@
 from strands import Agent, tool, AgentSkills
 from strands.models import BedrockModel
-from src.tools.archive_tools import look_analysis, collection_inventory, image_input
+from src.tools.archive_tools.collection_inventory import get_collection_inventory
+from src.tools.archive_tools.image_input import get_image_input
+from src.tools.archive_tools.look_analysis import get_look_analysis
 from strands_tools import retrieve
 from src.agents.hooks import LimitToolCounts
 from src.agents.handlers import AgentSteeringHandler
@@ -44,12 +46,13 @@ def archive_assistant(query: str) -> str:
         archive_agent = Agent(
             model=bedrock_model,
             system_prompt=PROMPT,
-            tools=[collection_inventory, look_analysis, image_input, retrieve],
+            tools=[get_collection_inventory, get_look_analysis, get_image_input, retrieve],
             plugins=[plugin, handler],
             hooks=[LimitToolCounts(max_tool_counts={"retrieve": 3})]
         )
 
         response = archive_agent(query)
+        print(f"ALL ARCHIVE AGENT TOOLS {archive_agent.tool_registry.get_all_tools_config()} FELLA----------------------------")
         return str(response)
     except Exception as e:
         return f"Error in item assistant: {str(e)}"
