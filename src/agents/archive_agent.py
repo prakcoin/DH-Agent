@@ -6,12 +6,16 @@ from src.tools.archive_tools.look_analysis import get_look_analysis
 from strands_tools import retrieve
 from src.agents.hooks import LimitToolCounts
 from src.agents.handlers import AgentSteeringHandler
+import os
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-pro-v1:0",
 )
 
-plugin = AgentSkills(skills="src/agents/skills/archive_skills")
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")) 
+path = os.path.join(ROOT_DIR, "src/agents/skills/archive_skills")
+
+plugin = AgentSkills(skills=path)
 
 PROMPT = """
 Role:
@@ -52,7 +56,6 @@ def archive_assistant(query: str) -> str:
         )
 
         response = archive_agent(query)
-        print(f"ALL ARCHIVE AGENT TOOLS {archive_agent.tool_registry.get_all_tools_config()} FELLA----------------------------")
         return str(response)
     except Exception as e:
         return f"Error in item assistant: {str(e)}"

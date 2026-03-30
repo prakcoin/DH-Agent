@@ -3,12 +3,16 @@ from strands.models import BedrockModel
 from src.tools.search_tools.general_search import general_search 
 from src.tools.search_tools.listing_search import listing_search
 from src.agents.handlers import AgentSteeringHandler
+import os
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-lite-v1:0",
 )
 
-plugin = AgentSkills(skills="src/agents/skills/search_skills")
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")) 
+path = os.path.join(ROOT_DIR, "src/agents/skills/search_skills")
+
+plugin = AgentSkills(skills=path)
 
 SEARCH_PROMPT = """
 Role:
