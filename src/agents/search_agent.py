@@ -1,8 +1,7 @@
 from strands import Agent, tool, AgentSkills
 from strands.models import BedrockModel
 from src.tools.search_tools import listing_search, general_search
-from strands.vended_plugins.steering import LLMSteeringHandler
-from src.agents.handlers import ModelOutputSteeringHandler
+from src.agents.handlers import AgentSteeringHandler
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-lite-v1:0",
@@ -15,7 +14,7 @@ Role:
 Provide verified market and historical context via web searches.
 """
 
-handler = ModelOutputSteeringHandler(
+handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 

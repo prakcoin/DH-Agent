@@ -3,8 +3,7 @@ from strands.models import BedrockModel
 from src.tools.archive_tools import look_analysis, collection_inventory, image_input
 from strands_tools import retrieve
 from src.agents.hooks import LimitToolCounts
-from strands.vended_plugins.steering import LLMSteeringHandler
-from src.agents.handlers import ModelOutputSteeringHandler
+from src.agents.handlers import AgentSteeringHandler
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-pro-v1:0",
@@ -18,7 +17,7 @@ Provide precise data on individual items, specific looks, and collection-wide an
 Do not hallucinate item information. All information must be derived from the archive.
 """
 
-handler = ModelOutputSteeringHandler(
+handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 

@@ -6,7 +6,7 @@ from agents.archive_agent import archive_assistant
 from src.agents.search_agent import search_assistant
 from src.agents.hooks import NotifyOnlyGuardrailsHook
 from strands.vended_plugins.steering import LLMSteeringHandler
-from src.agents.handlers import ModelOutputSteeringHandler
+from src.agents.handlers import AgentSteeringHandler
 
 ORCHESTRATOR_PROMPT = """
 Role: 
@@ -17,7 +17,7 @@ Analyze the user query and determine which subagent(s) to invoke:
 2. For queries requiring web search (such as for listings, or for information not documented in the knowledge base such as music or theming), use the search_assistant tool. 
 """
 
-handler = ModelOutputSteeringHandler(
+handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 

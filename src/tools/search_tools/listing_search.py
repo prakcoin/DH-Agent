@@ -3,8 +3,7 @@ from strands.models import BedrockModel
 from strands_tools import retrieve, stop
 from tavily import TavilyClient
 from src.agents.hooks import LimitToolCounts
-from strands.vended_plugins.steering import LLMSteeringHandler
-from src.agents.handlers import ModelOutputSteeringHandler, ToolInputSteeringHandler
+from src.agents.handlers import AgentSteeringHandler
 import urllib.request
 import json
 import logging
@@ -30,16 +29,7 @@ Use the retrieve tool to get the relevant information, then return it.
 If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
 """
 
-kb_tool_handler = ToolInputSteeringHandler(
-    # system_prompt="""
-    # You are providing guidance to ensure proper formatting of tool inputs.
-
-    # Guidance:
-    # Do not retrieve using the full query, instead extract the core subject (e.g., "leather jacket") and search with this instead.
-    # """
-)
-
-kb_handler = ModelOutputSteeringHandler(
+kb_handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 
@@ -57,23 +47,12 @@ Find current and past listings for items using the tavily_search tool.
 If the search returns no results, use the stop tool with reason RESULTS_NOT_AVAILABLE.
 """
 
-search_tool_handler = ToolInputSteeringHandler(
-    # system_prompt="""
-    # You are providing guidance to ensure proper formatting of tool inputs.
-
-    # Guidance:
-    # Always include season and collection identifiers if the user query is vague.
-    # Search using the query and the reference code and color retrieved from the knowledge base, combine them as one query.
-    # Do not search using the raw user query. Extract the core subject (e.g., "fur hooded jacket") and merge it with the retrieved knowledge base metadata. Example: input = "Can you find listings of the fur hooded jacket" + knowledge base "black, 4HH5043801" = black fur hooded leather jacket 4HH5043801.
-    # """
-)
-
-search_handler = ModelOutputSteeringHandler(
+search_handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 
     Guidance: 
-    Make sure a list of search results is retrieved.
+    Make sure a list of search results is retrieved, and that the output is not off topic.
     
     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
     """
@@ -85,7 +64,7 @@ Aggregate all web search results and filter out irrelevant or redundant results.
 You must pass all URLs from the search results into the validate_urls tool to help filter out any non-functional URLs.
 """
 
-aggregator_handler = ModelOutputSteeringHandler(
+aggregator_handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 
@@ -253,9 +232,9 @@ def listing_search(query: str) -> str:
     limit_search_hook = LimitToolCounts(max_tool_counts={"tavily_search": 3})
 
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve, stop], hooks=[limit_retrieve_hook], plugins=[kb_handler, kb_tool_handler])
+        system_prompt=KB_PROMPT, tools=[retrieve, stop], hooks=[limit_retrieve_hook], plugins=[kb_handler])
     google_agent = Agent(model=bedrock_model,
-        system_prompt=SEARCH_PROMPT, tools=[tavily_search, stop], hooks=[limit_search_hook], plugins=[search_handler, search_tool_handler])
+        system_prompt=SEARCH_PROMPT, tools=[tavily_search, stop], hooks=[limit_search_hook], plugins=[search_handler])
     aggregator_agent = Agent(model=bedrock_model,
         system_prompt=AGGREGATOR_PROMPT, tools=[validate_urls], plugins=[aggregator_handler])
 

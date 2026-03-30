@@ -12,8 +12,7 @@ from strands import Agent, tool
 from strands.models import BedrockModel
 from strands_tools import retrieve, stop
 from src.agents.hooks import LimitToolCounts
-from strands.vended_plugins.steering import LLMSteeringHandler
-from src.agents.handlers import ModelOutputSteeringHandler, ToolInputSteeringHandler
+from src.agents.handlers import AgentSteeringHandler
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -54,17 +53,7 @@ If there is no look number provided, retrieve it using the query and the retriev
 If the look number is already included in the query, there is no need to retrieve it from the knowledge base.
 """
 
-kb_tool_handler = ToolInputSteeringHandler(
-    # system_prompt="""
-    # You are providing guidance to ensure proper formatting of tool inputs.
-
-    # Guidance:
-    # Do not retrieve using the full query, instead extract the core subject (e.g., "leather jacket") and search with this instead.
-    # Using the retrieved look number, retrieve the look composition by passing the look number into the get_look_composition tool.    
-    # """
-)
-
-kb_handler = ModelOutputSteeringHandler(
+kb_handler = AgentSteeringHandler(
     system_prompt="""
     You are providing guidance to ensure proper formatting of information.
 
@@ -84,25 +73,16 @@ Role:
 Analyze look images for fit, silhouette, texture, and aesthetic details.
 """
 
-visual_tool_handler = ToolInputSteeringHandler(
-    # system_prompt="""
-    # You are providing guidance to ensure proper formatting of tool inputs.
+visual_handler = AgentSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
 
-    # Guidance:
-    # Use the retrieved image filenames and pass them into get_image_details in order to retrieve detailed visual analysis.
-    # """
+    Guidance:
+    Ensure a detailed visual analysis is provided, and that the output is not off topic.
+
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
 )
-
-# visual_handler = ModelOutputSteeringHandler(
-#     system_prompt="""
-#     You are providing guidance to ensure proper formatting of information.
-
-#     Guidance:
-#     Ensure a detailed visual analysis is provided.
-
-#     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
-#     """
-# )
 
 SYNTHESIS_PROMPT = """
 Role:
@@ -110,19 +90,6 @@ Synthesize a final answer based on visual and knowledge base information.
 Combine visual analysis with metadata for the final answer.
 Report discrepancies between visual and metadata observations.
 """
-
-# synthesis_handler = ModelOutputSteeringHandler(
-#     system_prompt="""
-#     You are providing guidance to ensure proper formatting of information.
-
-#     Guidance:
-#     Determine if the results are conclusive. If they aren't, state this.
-#     Ensure a fully synthesized answer is provided.
-    
-#     When the tools return their responses, evaluate the text and deliver the final response directly to the user.
-#     """
-# )
-
 
 @tool
 def get_look_composition(look_number: str):
@@ -264,9 +231,9 @@ def get_look_analysis(query: str) -> str:
     limit_hook = LimitToolCounts(max_tool_counts={"retrieve": 3})
 
     kb_agent = Agent(model=bedrock_model,
-        system_prompt=KB_PROMPT, tools=[retrieve, get_look_composition, stop], hooks=[limit_hook], plugins=[kb_handler, kb_tool_handler])
+        system_prompt=KB_PROMPT, tools=[retrieve, get_look_composition, stop], hooks=[limit_hook], plugins=[kb_handler])
     visual_agent = Agent(model=bedrock_model,
-        system_prompt=VISUAL_PROMPT, tools=[get_image_details, stop], plugins=[visual_tool_handler])
+        system_prompt=VISUAL_PROMPT, tools=[get_image_details, stop], plugins=[visual_handler])
     synthesis_agent = Agent(model=bedrock_model,
         system_prompt=SYNTHESIS_PROMPT)
 
