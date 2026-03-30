@@ -1,6 +1,8 @@
 from strands import Agent, tool, AgentSkills
 from strands.models import BedrockModel
-from src.tools.search_tools import listing_search, general_search
+from src.tools.search_tools.general_search import general_search 
+from src.tools.search_tools.listing_search import listing_search
+from src.agents.handlers import AgentSteeringHandler
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-lite-v1:0",
@@ -11,15 +13,18 @@ plugin = AgentSkills(skills="src/agents/skills/search_skills")
 SEARCH_PROMPT = """
 Role:
 Provide verified market and historical context via web searches.
-
-Guidelines:
-Limit searches strictly to Dior Homme AW04.
-When declining out-of-scope questions, you must state clearly that your expertise is strictly limited to this collection and offer to assist with any relevant inquiries instead.
-Always include season and collection identifiers if the user query is vague.
-For historical data, cite the source URL for every fact. For marketplace results, provide only the direct listing URL once per item.
-Avoid mentioning subagents or tools; the user sees only the final archival output.
-Address the query directly and exclusively. Do not provide tangential context, historical background, or related media unless specifically requested.
 """
+
+handler = AgentSteeringHandler(
+    system_prompt="""
+    You are providing guidance to ensure proper formatting of information.
+
+    Guidance:
+    For historical data, cite the source URL for every fact. For marketplace results, provide only the direct listing URL once per item.
+    
+    When the tools return their responses, evaluate the text and deliver the final response directly to the user.
+    """
+)
 
 @tool
 def search_assistant(query: str) -> str:
@@ -37,7 +42,7 @@ def search_assistant(query: str) -> str:
             model=bedrock_model,
             system_prompt=SEARCH_PROMPT,
             tools=[general_search, listing_search],
-            plugins=[plugin]
+            plugins=[plugin, handler]
         )
 
         response = archive_agent(query)
