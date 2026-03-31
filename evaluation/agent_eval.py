@@ -18,7 +18,7 @@ def get_response(case: Case) -> str:
     agent.agent.trace_attributes = {
         "gen_ai.conversation.id": case.session_id,
         "session.id": case.session_id
-    },
+    }
     response = agent.ask(case.input)
 
     finished_spans = memory_exporter.get_finished_spans()
@@ -28,8 +28,8 @@ def get_response(case: Case) -> str:
     return {"output": str(response), "trajectory": session}
 
 evaluators = [
-    HelpfulnessEvaluator(),
-    FaithfulnessEvaluator(),
+    HelpfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
+    FaithfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
 ]
 
 test_cases = [
@@ -37,14 +37,14 @@ test_cases = [
         input="What does look 1 consist of?",
         expected_output="Look 1 consists of a 1B blazer, a leather tie, a pinstripe shirt, trousers, suede moto boots, aviator sunglasses, a leather belt, and a bandana bracelet.",
     ),
-    # Case[str, str](
-    #     input="What is the reference code for the beetle leather jacket?",
-    #     expected_output="The reference code for the beetle leather jacket is 4HH5041101.",
-    # ),
-    # Case[str, str](
-    #     input="What material is the jacket in look 2 made from?",
-    #     expected_output="The jacket in look 2 is made from leather, more specifically calfskin.",
-    # )
+    Case[str, str](
+        input="What is the reference code for the beetle leather jacket?",
+        expected_output="The reference code for the beetle leather jacket is 4HH5041101.",
+    ),
+    Case[str, str](
+        input="What material is the jacket in look 2 made from?",
+        expected_output="The jacket in look 2 is made from leather, more specifically calfskin.",
+    )
 ]
 
 experiment = Experiment[str, str](cases=test_cases, evaluators=evaluators)
