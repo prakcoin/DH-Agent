@@ -76,9 +76,10 @@ test_cases = []
 
 for conversation in EVAL_DATA:
     test_cases.append(Case[str, str](
-            input=conversation["query"],
-            expected_output=conversation["reference"],
-            metadata=conversation["metadata"]
+        input=conversation["query"],
+        expected_output=conversation["reference"],
+        metadata=conversation["metadata"],
+        expected_trajectory=conversation["expected_trajectory"]
     ))
 
 async def run_async_evaluation():
