@@ -5,6 +5,7 @@ from strands_evals.mappers import StrandsInMemorySessionMapper
 from strands_evals.telemetry import StrandsEvalsTelemetry
 import sys
 import os
+import asyncio
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -13,7 +14,7 @@ from src.orchestration.orchestrator import Orchestrator
 telemetry = StrandsEvalsTelemetry().setup_in_memory_exporter()
 memory_exporter = telemetry.in_memory_exporter
 
-def get_response(case: Case) -> str:
+async def get_response(case: Case) -> str:
     agent = Orchestrator()
     agent.agent.trace_attributes = {
         "gen_ai.conversation.id": case.session_id,
@@ -30,25 +31,36 @@ def get_response(case: Case) -> str:
 evaluators = [
     HelpfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
     FaithfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
+    ToolSelectionAccuracyEvaluator(model='us.amazon.nova-pro-v1:0'),
+    GoalSuccessRateEvaluator(model='us.amazon.nova-pro-v1:0')
 ]
 
 test_cases = [
     Case[str, str](
         input="What does look 1 consist of?",
         expected_output="Look 1 consists of a 1B blazer, a leather tie, a pinstripe shirt, trousers, suede moto boots, aviator sunglasses, a leather belt, and a bandana bracelet.",
+        metadata={"category": "look_composition", "expected_tool": "look_analysis", "goal": "look_analysis"}
     ),
     Case[str, str](
         input="What is the reference code for the beetle leather jacket?",
         expected_output="The reference code for the beetle leather jacket is 4HH5041101.",
+        metadata={"category": "retrieval", "expected_tool": "retrieve", "goal": "retrieve"}
     ),
     Case[str, str](
         input="What material is the jacket in look 2 made from?",
         expected_output="The jacket in look 2 is made from leather, more specifically calfskin.",
+        metadata={"category": "retrieval", "expected_tool": "retrieve", "goal": "retrieve"}
     )
 ]
 
-experiment = Experiment[str, str](cases=test_cases, evaluators=evaluators)
-reports = experiment.run_evaluations(get_response)
+async def run_async_evaluation():
+    experiment = Experiment[str, str](cases=test_cases, evaluators=evaluators)
+    reports = await experiment.run_evaluations_async(get_response)
 
-print("=== Basic Output Evaluation Results ===")
-reports[0].run_display()
+    for report in reports:
+        report.run_display()
+
+    return reports
+
+if __name__ == "__main__":
+    report = asyncio.run(run_async_evaluation())
