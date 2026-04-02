@@ -3,6 +3,21 @@ import boto3
 import json
 from fastapi import FastAPI, HTTPException, Request
 from datetime import datetime,timezone
+import logging
+
+logging.getLogger("strands").setLevel(logging.DEBUG)
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+from strands.telemetry import StrandsTelemetry
+
+strands_telemetry = StrandsTelemetry()
+strands_telemetry.setup_console_exporter()
+strands_telemetry.setup_meter(
+    enable_console_exporter=True,
+    enable_otlp_exporter=True)
 
 def load_secrets():
     secret_name = "dh-agent/config"
