@@ -6,7 +6,8 @@ from src.agents.handlers import AgentSteeringHandler
 import os
 
 bedrock_model = BedrockModel(
-    model_id="us.amazon.nova-lite-v1:0",
+    model_id="us.amazon.nova-2-lite-v1:0",
+    temperature=0.0
 )
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")) 

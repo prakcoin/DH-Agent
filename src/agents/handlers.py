@@ -31,7 +31,7 @@ class AgentSteeringHandler(SteeringHandler):
         self._system_prompt = system_prompt
 
         self._model = BedrockModel(
-            model_id="us.amazon.nova-pro-v1:0",
+            model_id="us.amazon.nova-2-lite-v1:0",
         )
 
     async def steer_after_model(

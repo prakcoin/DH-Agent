@@ -32,7 +32,8 @@ class Orchestrator:
     """Wrapper class for the multi-agent orchestration system."""
 
     def __init__(self):
-        self.model = BedrockModel(model_id="us.amazon.nova-pro-v1:0",)
+        self.model = BedrockModel(model_id="us.amazon.nova-2-lite-v1:0",
+                                  temperature=0.0)
                                 #   guardrail_id="ys4jzzz12h6r",
                                 #   guardrail_version="14",
                                 #   guardrail_trace="enabled")
@@ -53,6 +54,9 @@ class Orchestrator:
     def ask(self, query: str):
         try:
             response = self.agent(query)
+            print(f"\n{'='*60}")
+            print(f"Response Summary")
+            print(f"{'='*60}")
             print(response.metrics.get_summary())
             if response.stop_reason == "guardrail_intervened":
                 return "Sorry, this question is out of scope. This archive is strictly dedicated to Dior Homme Autumn/Winter 2004."

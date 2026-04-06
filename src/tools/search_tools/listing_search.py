@@ -17,7 +17,8 @@ logger.setLevel(log_level)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 bedrock_model = BedrockModel(
-    model_id="us.amazon.nova-lite-v1:0",
+    model_id="us.amazon.nova-2-lite-v1:0",
+    temperature=0.0
 )
 
 KB_PROMPT = """
