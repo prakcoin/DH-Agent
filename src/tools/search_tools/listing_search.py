@@ -14,8 +14,6 @@ logging.basicConfig(format="[%(asctime)s] %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(log_level)
 
-AWS_REGION = os.getenv("AWS_REGION")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 bedrock_model = BedrockModel(
@@ -173,11 +171,11 @@ def tavily_search(query: str) -> str:
     try:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=30) as response:
             res_data = json.loads(response.read().decode("utf-8"))
             results.extend(res_data.get("results", []))
     except Exception as e:
-        logger.error(f"Search failed for USA variant 'Google': {e}")
+        logger.error(f"Search failed for united states variant 'Google': {e}")
 
 
     for region in regions:
@@ -195,7 +193,7 @@ def tavily_search(query: str) -> str:
             try:
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=30) as response:
                     res_data = json.loads(response.read().decode("utf-8"))
                     results.extend(res_data.get("results", []))
             except Exception as e:
