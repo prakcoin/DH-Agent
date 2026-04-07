@@ -93,18 +93,18 @@ Please provide a new response."""
             look_num = args.get("look_number")
 
             if not look_num:
-                return Guide(reason="The 'look_number' is missing. Please provide it.")
+                return Guide(reason="The look number is missing. Please provide it, either through knowledge base retrieval or the user's query.")
 
             look_str = str(look_num).strip()
 
             if not look_str.isdigit():
                 return Guide(
                     reason=f"The look number '{look_str}' is invalid. It must be a "
-                        "positive integer (e.g., 123). No decimals or words."
+                        "positive integer (e.g., 5). No decimals or words."
                 )
 
             if int(look_str) <= 0 or int(look_str) > 45:
-                return Guide(reason="Look number must be between 1-45 inclusive.")
+                return Guide(reason="The look number must be between 1-45 inclusive, as there are only 45 looks in the collection.")
 
         if tool_name == "get_image_details":
             kb_success = any(c["tool_name"] == "retrieve" and c["status"] == "success" for c in ledger)
@@ -112,16 +112,15 @@ Please provide a new response."""
 
             if not kb_success or not lc_success:
                 missing = []
-                if not kb_success: missing.append("'retrieve'")
-                if not lc_success: missing.append("'get_look_composition'")
+                if not kb_success: missing.append("'retrieve' to retrieve relevant metadata")
+                if not lc_success: missing.append("'get_look_composition' to get the full look breakdown")
                 
                 return Guide(
-                    reason=f"Prerequisites missing. You must successfully call {', and '.join(missing)} "
+                    reason=f"Prerequisite tools missing. You must successfully call {', and '.join(missing)} "
                         "before using this tool."
                 )
             
             filenames = args.get("image_filenames")
-            query = args.get("query", "")
 
             if not isinstance(filenames, list):
                 return Guide(
@@ -166,7 +165,7 @@ Please provide a new response."""
         if tool_name == "get_cloudfront_url":
             ir_success = any(c["tool_name"] == "image_retrieve" and c["status"] == "success" for c in ledger)
             if not ir_success:
-                return Guide(reason="You must call 'image_retrieve' to get images before getting URLs.")
+                return Guide(reason="Prerequisite tool missing. You must successfully call 'image_retrieve' to get images before using this tool.")
 
         if tool_name == "get_image_comparison":
             ir_success = any(c["tool_name"] == "image_retrieve" and c["status"] == "success" for c in ledger)
@@ -174,12 +173,12 @@ Please provide a new response."""
 
             if not ir_success or not gc_success:
                 if not ir_success:
-                    return Guide(reason="Step 1: Use 'image_retrieve' to find matching images. Step 2: Use 'get_cloudfront_url' to make them accessible.")
+                    return Guide(reason="Prerequisite tool missing. You must successfully call 'image_retrieve' to get images before using this tool.")
                 else:
-                    return Guide(reason="Images found, but they are not accessible. You must pass the retrieved file paths into 'get_cloudfront_url' before presenting them.")
+                    return Guide(reason="Prerequisite tool missing. You must sucessfully call 'get_cloudfront_url' to make retrieved images accessible before using this tool.")
 
             if args.get("query_filename") == args.get("retrieved_filename"):
-                return Guide(reason="Comparison requires two different images.")
+                return Guide(reason="Comparison requires two different images. Duplicate images were provided.")
 
             path_fields = ["image_path", "query_filename", "retrieved_filename"]
             valid_exts = (".png", ".jpg", ".jpeg", ".gif", ".webp")
@@ -201,7 +200,7 @@ Please provide a new response."""
         if tool_name == "tavily_search":
             kb_success = any(c["tool_name"] == "retrieve" and c["status"] == "success" for c in ledger)
             if not kb_success:
-                return Guide(reason="You must call 'retrieve' to get metadata before searching.")
+                return Guide(reason="Prerequisite tool missing. You must call 'retrieve' to get metadata before using this tool.")
 
             query = args.get("query", "").lower()
             forbidden = ["dior", "homme", "aw04", "autumn", "winter", "2004"]
