@@ -2,6 +2,7 @@ from strands_evals import Case, Experiment, ActorSimulator
 from strands_evals.evaluators import HelpfulnessEvaluator, GoalSuccessRateEvaluator, FaithfulnessEvaluator, ToolSelectionAccuracyEvaluator, OutputEvaluator, TrajectoryEvaluator
 from strands_evals.mappers import StrandsInMemorySessionMapper
 from strands_evals.telemetry import StrandsEvalsTelemetry
+from strands.models import BedrockModel
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -110,12 +111,12 @@ def create_evaluators():
     """
 
     evaluators = [
-        OutputEvaluator(rubric=OUTPUT_RUBRIC, model='us.amazon.nova-pro-v1:0'),
-        TrajectoryEvaluator(rubric=TRAJECTORY_RUBRIC, model='us.amazon.nova-pro-v1:0'),
-        HelpfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
-        FaithfulnessEvaluator(model='us.amazon.nova-pro-v1:0'),
-        ToolSelectionAccuracyEvaluator(model='us.amazon.nova-pro-v1:0'),
-        GoalSuccessRateEvaluator(model='us.amazon.nova-pro-v1:0')
+        OutputEvaluator(rubric=OUTPUT_RUBRIC, model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0)),
+        TrajectoryEvaluator(rubric=TRAJECTORY_RUBRIC, model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0)),
+        HelpfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0)),
+        FaithfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0)),
+        ToolSelectionAccuracyEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0)),
+        GoalSuccessRateEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0))
     ]
 
     return evaluators

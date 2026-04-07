@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    mode = "search"
+    mode = "general"
 
     response_fn = get_multiturn_response if mode == "followups" else get_response
 
