@@ -18,7 +18,8 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-2-lite-v1:0",
-    temperature=0.0
+    temperature=0.0,
+    max_tokens=12000
 )
 
 KB_PROMPT = """

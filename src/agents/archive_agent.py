@@ -10,7 +10,8 @@ import os
 
 bedrock_model = BedrockModel(
     model_id="us.amazon.nova-2-lite-v1:0",
-    temperature=0.0
+    temperature=0.0,
+    max_tokens=12000
 )
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")) 
