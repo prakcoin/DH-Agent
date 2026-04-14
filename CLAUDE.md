@@ -71,6 +71,27 @@ Uses **Strands Evals** with OpenTelemetry span collection. Evaluators: `OutputEv
 
 Each sub-agent has a `skills/` directory with `SKILL.md` files that document tool capabilities for the Strands framework. These are passed to agents at construction time and influence tool selection behavior.
 
+## Collection Data Schema
+
+The collection dataset consists of all garments and accessories across all looks. Each row is one item in one look. The per-look CSVs in S3 (`aw04-data/looks/look_*.csv`) use this schema.
+
+**Schema:**
+
+| Column | Notes |
+|---|---|
+| `Name` | Item name (e.g. `Striped T-Shirt`, `Suede Moto Boot`) |
+| `Reference Code` | Dior reference number; `Not available` or `To be updated` where unknown |
+| `Look Number` | Integer 1–45 |
+| `Category` | `Accessories`, `Top`, `Bottom`, `Footwear`, `Outerwear` |
+| `Subcategory` | More specific type (e.g. `T-Shirt`, `Belt`, `Boot`, `Knitwear`, `Scarf`) |
+| `Primary Color` | Dominant color |
+| `Secondary Color(s)` | `No secondary color` when absent |
+| `Pattern` | `Solid`, `Striped`, `Washed`, `Speckled`, `Herringbone`, `Ribbed`, `Tartan`, `Gradient`, `Houndstooth` |
+| `Primary Outer Material` | e.g. `Leather`, `Laine wool`, `Cotton`, `Suede` |
+| `Secondary Outer Material(s)` | `None` when absent |
+| `Additional Notes` | Free text; often records off-runway variants (e.g. alternate colorways, alternate reference codes, sizing differences) |
+| `Images` | Comma-separated filenames mapping to S3/CloudFront images (e.g. `look1_1.jpg, look1_2.jpg`) |
+
 ## Environment Variables
 
 Secrets are loaded at startup from AWS Secrets Manager (`dh-agent/config`), which overrides env vars.
