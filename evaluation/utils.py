@@ -51,13 +51,25 @@ Score 0.0 if the response is inadequate.
 
 output_evaluator = OutputEvaluator(rubric=OUTPUT_RUBRIC, model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000))
 helpfulness_evaluator = HelpfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000))
-faithfulness_evaluator = FaithfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000))
-TOOL_SELECTION_RUBRIC = """
-You are evaluating tool selection accuracy for a multi-agent system built around the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
-The system has two tools available at the orchestrator level:
 
-1. archive_assistant — Use for queries about the collection itself: specific items, looks, materials, construction details, recurring motifs, item counts, collection-wide analysis, item variations, and knowledge base retrieval. This is the correct tool for the vast majority of queries about this collection.
-2. search_assistant — Use for for queries requiring live web search: marketplace listings, resale prices, external historical context, or information not documented in the knowledge base (e.g. music, cultural references, press coverage).
+FAITHFULNESS_RUBRIC = """
+You are evaluating whether an agent's response is faithful to the conversation history.
+The agent is a specialist assistant for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
+This collection context is part of the agent's identity — referencing the collection name, season, or designer is NOT a faithfulness violation even if not explicitly stated in the tool output.
+A faithfulness violation is when the agent introduces factual claims (item names, counts, look numbers, materials, colors) that conflict with or are absent from the tool results in the conversation history.
+Score based on whether the factual content of the response is grounded in the tool results, not whether the agent acknowledges its own domain context.
+"""
+
+faithfulness_evaluator = FaithfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000), system_prompt=FAITHFULNESS_RUBRIC)
+
+TOOL_SELECTION_RUBRIC = """
+You are evaluating tool selection accuracy for a multi-agent fashion archive assistant for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
+
+Orchestrator-level tools:
+1. archive_assistant — For any query about the collection itself: specific items, looks, materials, construction, motifs, counts, variations, and knowledge base retrieval. Correct for the vast majority of queries.
+2. search_assistant — For queries requiring live web data: marketplace listings, resale prices, or information not in the knowledge base (e.g. cultural references, press coverage).
+
+A tool call is justified if it is the most appropriate tool for the query given the context. Consider both tool choice and timing relative to what has already been retrieved.
 """
 
 tool_evaluator = ToolSelectionAccuracyEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000), system_prompt=TOOL_SELECTION_RUBRIC)
