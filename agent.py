@@ -11,15 +11,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 
-from strands.telemetry import StrandsTelemetry
-
-strands_telemetry = StrandsTelemetry()
-strands_telemetry.setup_console_exporter()
-strands_telemetry.setup_otlp_exporter()
-strands_telemetry.setup_meter(
-    enable_console_exporter=True,
-    enable_otlp_exporter=True)
-
 def load_secrets():
     secret_name = "dh-agent/config"
     region_name = "us-east-1"
@@ -32,6 +23,15 @@ def load_secrets():
         os.environ[key] = str(value)
 
 load_secrets()
+
+from strands.telemetry import StrandsTelemetry
+
+strands_telemetry = StrandsTelemetry()
+strands_telemetry.setup_console_exporter()
+strands_telemetry.setup_otlp_exporter()
+strands_telemetry.setup_meter(
+    enable_console_exporter=True,
+    enable_otlp_exporter=True)
 
 from src.orchestration.orchestrator import Orchestrator
 
