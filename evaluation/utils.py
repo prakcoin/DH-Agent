@@ -39,14 +39,14 @@ telemetry = StrandsEvalsTelemetry().setup_in_memory_exporter()
 memory_exporter = telemetry.in_memory_exporter
 
 OUTPUT_RUBRIC = """
-Evaluate the response based on:
-1. Accuracy - Is the information correct?
-2. Completeness - Does it fully answer the question?
-3. Clarity - Is it easy to understand?
+You are evaluating responses from a specialist assistant for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
 
-Score 1.0 if all criteria are met excellently.
-Score 0.5 if some criteria are partially met.
-Score 0.0 if the response is inadequate.
+Evaluate on:
+1. Accuracy — Claims must be grounded in available data: knowledge base entries (items, look numbers, materials, colors, reference codes) for archive queries, or web/marketplace research for search queries. Refusing to answer when data is unavailable is correct behavior, not a failure.
+2. Completeness — Does it answer the specific question asked?
+3. Clarity — Is it concise and easy to understand?
+
+Score 1.0 if all criteria are met. Score 0.5 if partially met. Score 0.0 if inadequate or factually wrong.
 """
 
 output_evaluator = OutputEvaluator(rubric=OUTPUT_RUBRIC, model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000))
@@ -63,12 +63,12 @@ Score based on whether the factual content of the response is grounded in the to
 faithfulness_evaluator = FaithfulnessEvaluator(model=BedrockModel(model_id="us.amazon.nova-2-lite-v1:0", temperature=0.0, max_tokens=12000), system_prompt=FAITHFULNESS_RUBRIC)
 
 TOOL_SELECTION_RUBRIC = """
-You are evaluating tool selection accuracy for a multi-agent fashion archive assistant for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
+You are evaluating tool selection accuracy for a specialist assistant for the Dior Homme Autumn/Winter 2004 "Victim of the Crime" collection.
 
-The knowledge base contains ONLY runway look data: per-garment entries with item name, reference code, look number, category, subcategory, colors, pattern, materials, construction notes, and image filenames. It does NOT contain pricing, cultural context, editorial analysis, celebrity associations, hardware brand details, soundtracks, or design inspirations.
+The knowledge base contains runway look data: per-garment entries with item name, reference code, look number, category, subcategory, colors, pattern, materials, construction notes, and image filenames. The Additional Notes field also documents non-runway variants for select items — alternate colorways, pieces not featured on the runway, alternate reference codes, and sizing differences. It does NOT contain pricing, cultural context, editorial analysis, celebrity associations, hardware brand details, soundtracks, or design inspirations.
 
 Orchestrator-level tools:
-1. archive_assistant — For queries answerable from the runway metadata: specific items, look compositions, garment descriptions, materials, colors, reference codes, counts, and collection-wide inventory.
+1. archive_assistant — For queries answerable from the runway metadata: specific items, look compositions, garment descriptions, materials, colors, reference codes, counts, collection-wide inventory, and non-runway variants or alternate versions of items.
 2. search_assistant — For any query requiring information beyond the runway metadata, including: marketplace listings, resale prices, who wore a piece, hardware/component brands (e.g. zipper manufacturer), design inspirations, cultural impact, soundtracks, press coverage, or editorial context.
 
 A tool call is correct if it is the most appropriate tool for the query. Using archive_assistant for a question whose answer is outside the runway metadata (e.g. zipper brand, famous wearer, soundtrack, inspirations) is incorrect even if the question is about the collection.
