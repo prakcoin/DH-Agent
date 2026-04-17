@@ -105,7 +105,12 @@ def execute_pandas_expression(expression: str) -> str:
     """
     namespace = {**EVAL_NAMESPACE, "df": df_archive}
     try:
-        result = eval(expression, namespace)
+        try:
+            result = eval(expression, namespace)
+        except SyntaxError:
+            exec(expression, namespace)  # noqa: S102
+            last_line = expression.strip().split('\n')[-1].strip()
+            result = eval(last_line, namespace)
         result_str = result_to_string(result)
         logger.info(f"Executed: {expression} → {result_str[:200]}")
         return result_str
