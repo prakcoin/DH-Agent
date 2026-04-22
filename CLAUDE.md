@@ -24,9 +24,12 @@ curl -X POST http://localhost:8080/invocations \
 curl http://localhost:8080/ping
 
 # Run evaluation suites
-uv run python evaluation/evaluate.py --mode aggregation
 uv run python evaluation/evaluate.py --mode general
+uv run python evaluation/evaluate.py --mode aggregation
 uv run python evaluation/evaluate.py --mode followups
+uv run python evaluation/evaluate.py --mode vqa
+uv run python evaluation/evaluate.py --mode search
+uv run python evaluation/evaluate.py --mode outofscope
 
 # Startup order: (1) collector → (2) server → (3) queries
 
@@ -55,7 +58,7 @@ The orchestrator uses `BedrockModel("us.amazon.nova-2-lite-v1:0")` with `Proacti
 
 - **`collection_inventory.py`** — Map-reduce aggregation over all 45 looks: splits CSV metadata into chunks, analyzes in parallel via sub-agents, reduces via aggregator agent. Supports filtering by subcategory/color.
 - **`look_analysis.py`** — 3-step pipeline per look: (1) KB retrieval, (2) multi-image visual analysis via Nova Pro, (3) synthesis. No hallucination because it grounds every claim in KB data and images.
-- **`image_input.py`** — Image-based similarity search using Bedrock Knowledge Base vector search, then visual comparison.
+- **`image_input.py`** — Image-based similarity search using S3 Vectors (`aw04-image-vectors` bucket, `images` index). Embeds the query image via Nova Multimodal Embeddings directly, queries the vector index for nearest neighbours (max cosine distance 0.3), then runs visual comparison via Nova Pro. The vector index was populated by `scripts/populate_image_vectors.py` and must be re-run if images are added to S3.
 
 ### Search Tools (`src/tools/search_tools/`)
 
@@ -78,9 +81,26 @@ The orchestrator uses `BedrockModel("us.amazon.nova-2-lite-v1:0")` with `Proacti
 
 Uses **Strands Evals** with OpenTelemetry span collection. Evaluators: `OutputEvaluator`, `HelpfulnessEvaluator`, `FaithfulnessEvaluator`, `ToolSelectionAccuracyEvaluator`, `GoalSuccessRateEvaluator`. Results written to `evaluation/results/{mode}/{timestamp}/reports/`. Test cases are in `evaluation/datasets/eval_*.json` with expected tool trajectories.
 
+#### Evaluation Datasets
+
+| File | Mode flag | Cases | Tests |
+|---|---|---|---|
+| `eval_general.json` | `general` | 8 | Specific item lookups: look compositions, reference codes, materials, accessories — all answerable from KB metadata |
+| `eval_aggregation.json` | `aggregation` | 8 | Collection-wide inventory queries: counts, recurring motifs, color distributions, non-runway variants |
+| `eval_followups.json` | `followups` | 4 | Multi-turn conversations requiring context retention across turns |
+| `eval_search.json` | `search` | 8 | Queries requiring web research: marketplace listings, cultural context, design inspirations, notable wearers |
+| `eval_vqa.json` | `vqa` | 8 | Visual question answering — two categories: `look_visual_analysis` (visual details within a look, e.g. closures, hem styling, accessory placement) and `image_input` (identifying or verifying images against the collection) |
+| `eval_outofscope.json` | `outofscope` | 4 | Queries that should be gracefully declined: non-existent look numbers, items not in the collection |
+
+#### VQA Dataset Notes
+
+**All VQA answers require pure visual analysis — none are derivable from CSV metadata or `Additional Notes`.** This is intentional: the dataset tests the visual capability of the pipeline, not KB retrieval. When diagnosing VQA failures, do not look to the CSVs for answers. Failures on `look_visual_analysis` cases (e.g. wrist orientation, hidden closures) may be hard ceilings imposed by Nova Pro's visual capacity rather than fixable pipeline issues.
+
 ### Agent Skills (`src/agents/skills/`)
 
 Each sub-agent has a `skills/` directory with `SKILL.md` files that document tool capabilities for the Strands framework. These are passed to agents at construction time and influence tool selection behavior.
+
+**To fix tool usage behavior, update SKILL.md files — not agent system prompts.**
 
 ## Collection Data Schema
 

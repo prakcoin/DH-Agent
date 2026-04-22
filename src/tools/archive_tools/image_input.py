@@ -8,12 +8,11 @@ from strands import Agent, tool
 from strands_tools import stop
 from strands.models import BedrockModel
 from src.agents.hooks import LimitToolCounts
-from botocore.config import Config as BotocoreConfig
-from strands.vended_plugins.steering import LLMSteeringHandler
 from src.agents.handlers import AgentSteeringHandler
 
-s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
-bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
+VECTOR_BUCKET = "aw04-image-vectors"
+VECTOR_INDEX = "images"
+EMBEDDING_MODEL_ID = "amazon.nova-2-multimodal-embeddings-v1:0"
 
 BUCKET_NAME = 'aw04-data'
 IMAGE_FOLDER = 'images/'
@@ -40,10 +39,12 @@ Provide a one-sentence summary of the relationship.
 IMAGE_KB_PROMPT = """ 
 Role:
 Retrieve the most relevant images related to the image using the image_retrieve and get_cloudfront_url tools.
+
+Guidelines:
 Pass the image path (PNG, JPEG/JPG, GIF, or WebP formats) from the query into the image_path parameter of the image_retrieve tool.
 For every file path or filename returned by image_retrieve, you MUST call the get_cloudfront_url tool to generate a valid access link.
 If no image is found, or no image path is provided, use the stop tool with reason IMAGE_NOT_AVAILABLE.
-If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.    
+If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
 Return the full filepaths for the matching images if they are found.
 If the top result scores end in a tie, return all of the results.
 """
@@ -60,9 +61,13 @@ kb_handler = AgentSteeringHandler(
     """
 )
 
-IMAGE_READER_PROMPT = """ 
+IMAGE_READER_PROMPT = """
 Role:
-Analyze the query image and retrieved images using the get_image_comparison tool.
+Compare the query image against the retrieved archival image using the get_image_comparison tool.
+
+Guidelines:
+Call get_image_comparison with the query image path and the retrieved archival image.
+If get_image_comparison returns an error, use the stop tool with reason COMPARISON_ERROR.
 """
 
 comparison_handler = AgentSteeringHandler(
@@ -79,8 +84,12 @@ comparison_handler = AgentSteeringHandler(
 SYNTHESIS_PROMPT = """
 Role:
 Synthesize a final answer based on visual and knowledge base information.
+
+Guidelines:
 Combine visual analysis with metadata for the final answer.
-Report discrepancies between visual and metadata observations.
+If visual analysis is inconclusive or returned an error, state this explicitly — do not speculate using KB metadata alone.
+If visual and KB data conflict, report the discrepancy rather than picking one.
+Only state a definitive answer when the evidence clearly supports it.
 """
 
 @tool
@@ -88,7 +97,7 @@ def image_retrieve(image_path: str) -> str:
     """
     Perform image-retrieval from the image knowledge base.
 
-    Use this tool when a query requires direct visual inspection of garments, accessories, layering, closures, construction details, or physical attributes that cannot be reliably inferred from metadata alone. 
+    Use this tool when a query requires direct visual inspection of garments, accessories, layering, closures, construction details, or physical attributes that cannot be reliably inferred from metadata alone.
 
     Args:
     image_path (str): The image to use as a retrieval key.
@@ -96,69 +105,69 @@ def image_retrieve(image_path: str) -> str:
     Returns:
     A structured textual analysis based only on confirmed visual observations.
     """
-    kb_id = os.getenv("IMAGE_KNOWLEDGE_BASE_ID")
-    region_name = os.getenv("AWS_REGION")
-    min_score = 0.4
-    
+    region = os.getenv("AWS_REGION")
+    bedrock = boto3.client('bedrock-runtime', region_name=region)
+    s3vectors = boto3.client('s3vectors', region_name=region)
+    max_distance = 0.3
+
     try:
         with open(image_path, "rb") as image_file:
-            image_bytes = base64.b64encode(image_file.read()).decode("utf-8")
-
-        config = BotocoreConfig(user_agent_extra="archival-research-agent")
-        client = boto3.client("bedrock-agent-runtime", region_name=region_name, config=config)
+            image_bytes = image_file.read()
 
         image_format = image_path.split('.')[-1].lower()
         if image_format == 'jpg':
             image_format = 'jpeg'
 
-        retrieval_query = {
-            "type": "IMAGE",
-            "image": {
-                "format": image_format,
-                "inlineContent": base64.b64decode(image_bytes)
+        embed_body = json.dumps({
+            "schemaVersion": "nova-multimodal-embed-v1",
+            "taskType": "SINGLE_EMBEDDING",
+            "singleEmbeddingParams": {
+                "embeddingPurpose": "IMAGE_RETRIEVAL",
+                "embeddingDimension": 3072,
+                "image": {
+                    "detailLevel": "STANDARD_IMAGE",
+                    "format": image_format,
+                    "source": {
+                        "bytes": base64.b64encode(image_bytes).decode("utf-8")
+                    }
+                }
             }
-        }
+        })
 
-        retrieval_config = {
-            "vectorSearchConfiguration": {
-                "numberOfResults": 3
-            }
-        }
+        embed_response = bedrock.invoke_model(
+            modelId=EMBEDDING_MODEL_ID,
+            body=embed_body,
+            accept="application/json",
+            contentType="application/json"
+        )
+        embedding = json.loads(embed_response["body"].read())["embeddings"][0]["embedding"]
 
-        response = client.retrieve(
-            retrievalQuery=retrieval_query,
-            knowledgeBaseId=kb_id,
-            retrievalConfiguration=retrieval_config
+        query_response = s3vectors.query_vectors(
+            vectorBucketName=VECTOR_BUCKET,
+            indexName=VECTOR_INDEX,
+            queryVector={"float32": embedding},
+            topK=3,
+            returnMetadata=True,
+            returnDistance=True
         )
 
-        all_results = response.get("retrievalResults", [])
-        
-        filtered_results = [r for r in all_results if r.get("score", 0.0) >= min_score]
-        
-        if not filtered_results:
-            return f"No results found above score threshold of {min_score}."
+        results = query_response.get("vectors", [])
+        filtered = [r for r in results if r.get("distance", 1.0) <= max_distance]
+
+        if not filtered:
+            return f"No results found below distance threshold of {max_distance}."
 
         formatted = []
-        for result in filtered_results:
-            location = result.get("location", {})
-            
-            doc_id = "Unknown"
-            if "s3Location" in location:
-                doc_id = location["s3Location"].get("uri", "Unknown")
-            elif "customDocumentLocation" in location:
-                doc_id = location["customDocumentLocation"].get("id", "Unknown")
-            
-            score = result.get("score", 0.0)
-            formatted.append(f"\nScore: {score:.4f}")
-            formatted.append(f"Document ID: {doc_id}")
+        for r in filtered:
+            filename = r.get("metadata", {}).get("filename", r.get("key", "Unknown"))
+            distance = r.get("distance", 1.0)
+            score = round(1 - distance, 4)
+            formatted.append(f"\nScore: {score}")
+            formatted.append(f"Document ID: {filename}")
+            formatted.append("")
 
-            content = result.get("content", {})
-            if content and isinstance(content.get("text"), str):
-                formatted.append(f"Content: {content['text']}\n")
+        return f"Retrieved {len(filtered)} results:\n" + "\n".join(formatted)
 
-        formatted_results_str = "\n".join(formatted)
-
-        return f"Retrieved {len(filtered_results)} results with score >= {min_score}:\n{formatted_results_str}"
     except Exception as e:
         return f"Error during visual retrieval: {str(e)}"
 
@@ -190,6 +199,10 @@ def get_image_comparison(query_filename: str, retrieved_filename: str):
     Returns:
     A analysis and comparison of the images.
     """
+    region = os.getenv("AWS_REGION")
+    s3 = boto3.client('s3', region_name=region)
+    bedrock = boto3.client('bedrock-runtime', region_name=region)
+
     try:
         content_blocks = []
 
