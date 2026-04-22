@@ -17,8 +17,6 @@ from src.agents.handlers import AgentSteeringHandler
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
-bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
 BUCKET_NAME = 'aw04-data'
 IMAGE_FOLDER = 'images/'
 FOLDER_PREFIX = 'looks/'
@@ -48,11 +46,14 @@ Step 3- For confirmed details, state them directly. For details where evidence i
 
 KB_PROMPT = """
 Role:
-Retrieve the look number, category, subcategory, primary and secondary color(s), pattern, primary and secondary outer material(s), and additional notes from the knowledge base based on the query using the retrieve tool. 
-Retrieve the look composition by passing the look number (either retrieved from the knowledge base, or provided by the user) into the get_look_composition tool. 
+Retrieve the look number, category, subcategory, primary and secondary color(s), pattern, primary and secondary outer material(s), and additional notes from the knowledge base based on the query using the retrieve tool.
+Retrieve the look composition by passing the look number (either retrieved from the knowledge base, or provided by the user) into the get_look_composition tool.
+
+Guidelines:
 If retrieve returns no results or an error, use the stop tool with reason INFO_NOT_AVAILABLE.
-If there is no look number provided, retrieve it using the query and the retrieve tool. 
+If there is no look number provided, retrieve it using the query and the retrieve tool.
 If the look number is already included in the query, there is no need to retrieve it from the knowledge base.
+Your final response MUST include the exact image URLs returned by get_look_composition under a clearly labelled "Image URLs:" section.
 """
 
 kb_handler = AgentSteeringHandler(
@@ -73,6 +74,11 @@ kb_handler = AgentSteeringHandler(
 VISUAL_PROMPT = """
 Role:
 Analyze look images for fit, silhouette, texture, and aesthetic details.
+
+Guidelines:
+Extract the look number from the retrieved results.
+Find the exact CloudFront URLs listed under "Image URLs:" in the retrieved results.
+Pass those exact URLs to get_image_details. Do NOT construct, modify, or guess filenames.
 """
 
 visual_handler = AgentSteeringHandler(
@@ -89,8 +95,12 @@ visual_handler = AgentSteeringHandler(
 SYNTHESIS_PROMPT = """
 Role:
 Synthesize a final answer based on visual and knowledge base information.
-Combine visual analysis with metadata for the final answer.
-Report discrepancies between visual and metadata observations.
+
+Guidelines:
+For queries about visually observable details (closures, hems, construction, jewelry, positioning), visual analysis is the primary source. Use KB metadata as supporting context only.
+If visual analysis is inconclusive or images were unavailable, state this explicitly — do not resolve the ambiguity using KB metadata.
+If visual and KB data conflict, report the discrepancy rather than picking one.
+Only state a definitive answer when the evidence clearly supports it.
 """
 
 @tool
@@ -106,6 +116,7 @@ def get_look_composition(look_number: str):
     Returns: 
     A JSON containing a list of every item in the requested look, and a list of image URLs for the look.
     """
+    s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
     prefix = f"{IMAGE_FOLDER}look{look_number}_"
     image_objects = s3.list_objects_v2(
         Bucket=BUCKET_NAME, 
@@ -162,6 +173,8 @@ def get_image_details(image_filenames: list[str], query: str):
     Returns:
     A structured textual analysis based only on confirmed visual observations.
     """
+    s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
+    bedrock = boto3.client('bedrock-runtime', region_name=os.getenv("AWS_REGION"))
     try:
         if not image_filenames:
             return "Error: No image filenames provided."
